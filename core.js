@@ -10,6 +10,7 @@
     A:  { c: 2, p: 1, name: '減針',   short: '減' },
     T:  { c: 1, p: 1, name: '中長針', short: '中長' },
     F:  { c: 1, p: 1, name: '長針',   short: '長' },
+    FV: { c: 1, p: 2, name: '長針加針', short: '長加' },
     SL: { c: 1, p: 1, name: '引拔針', short: '引' },
     CH: { c: 0, p: 1, name: '鎖針',   short: '鎖' }
   };
@@ -21,6 +22,7 @@
     A: '減針：2 針併成 1 針',
     T: '中長針',
     F: '長針',
+    FV: '長針加針：同一針裡鉤 2 長針',
     SL: '引拔針',
     CH: '鎖針'
   };
@@ -85,7 +87,7 @@
         return { type: 'color', color, items: inner };
       }
       const rest = s.slice(i);
-      const m = /^(SL|CH|[XVWATF])/.exec(rest);
+      const m = /^(SL|CH|FV|[XVWATF])/.exec(rest);
       if (!m) err('看不懂的針法「' + (rest[0] || '') + '」');
       i += m[1].length;
       return { type: 'st', k: m[1], n: n == null ? 1 : n };
