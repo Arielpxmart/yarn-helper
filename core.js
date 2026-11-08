@@ -174,7 +174,7 @@
       nums.forEach((r, k) => {
         const step = {
           type: 'row',
-          label: r == null ? String(src.rows || '') : prefix + r,
+          label: src.label ? String(src.label) : r == null ? String(src.rows || '') : prefix + r,
           rangeLabel: nums.length > 1 ? prefix + nums[0] + '～' + nums[nums.length - 1] + '（第 ' + (k + 1) + '/' + nums.length + ' 圈）' : null,
           raw: src.raw || null,
           text: src.text || null,
