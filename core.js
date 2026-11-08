@@ -11,6 +11,9 @@
     T:  { c: 1, p: 1, name: '中長針', short: '中長' },
     F:  { c: 1, p: 1, name: '長針',   short: '長' },
     FV: { c: 1, p: 2, name: '長針加針', short: '長加' },
+    E:  { c: 1, p: 1, name: '長長針', short: '長長' },
+    EV: { c: 1, p: 2, name: '長長針加針', short: '長長加' },
+    M:  { c: 3, p: 1, name: '3 針併 1', short: '併3' },
     SL: { c: 1, p: 1, name: '引拔針', short: '引' },
     CH: { c: 0, p: 1, name: '鎖針',   short: '鎖' }
   };
@@ -23,6 +26,9 @@
     T: '中長針',
     F: '長針',
     FV: '長針加針：同一針裡鉤 2 長針',
+    E: '長長針',
+    EV: '長長針加針：同一針裡鉤 2 長長針',
+    M: '3 針併成 1 短針',
     SL: '引拔針',
     CH: '鎖針'
   };
@@ -87,7 +93,7 @@
         return { type: 'color', color, items: inner };
       }
       const rest = s.slice(i);
-      const m = /^(SL|CH|FV|[XVWATF])/.exec(rest);
+      const m = /^(SL|CH|FV|EV|[XVWATFEM])/.exec(rest);
       if (!m) err('看不懂的針法「' + (rest[0] || '') + '」');
       i += m[1].length;
       return { type: 'st', k: m[1], n: n == null ? 1 : n };

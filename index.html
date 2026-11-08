@@ -175,6 +175,13 @@
   .info h3 { font-size: 15px; margin: 16px 0 6px; }
   .info ul { margin: 0; padding-left: 20px; }
   .info li { margin: 4px 0; }
+  .kb-sec { margin: 18px 0 6px; font-size: 16px; font-weight: 800; color: var(--primary); }
+  .kb-row { display: flex; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); align-items: baseline; }
+  .kb-row:last-child { border-bottom: none; }
+  .kb-code { flex-shrink: 0; min-width: 64px; font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 15px; }
+  .kb-text { flex: 1; font-size: 15px; }
+  .kb-text small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .kb-note { background: var(--primary-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 14px; }
   .empty { text-align: center; padding: 40px 10px; }
   .empty .e-ico { font-size: 52px; }
 </style>
@@ -197,7 +204,7 @@ function h(tag, attrs, ...kids) {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? '' : v);
   }
-  for (const kid of kids.flat()) {
+  for (const kid of kids.flat(Infinity)) {
     if (kid == null || kid === false) continue;
     el.appendChild(typeof kid === 'string' || typeof kid === 'number' ? document.createTextNode(String(kid)) : kid);
   }
@@ -434,6 +441,58 @@ function openViewer(project, startIdx) {
   document.body.appendChild(v);
 }
 
+/* ---------- 符號小知識 ---------- */
+const GUIDE = [
+  { title: '🌼 基本針法', rows: [
+    ['X', '短針'],
+    ['CH／ch', '鎖針（辮子針）'],
+    ['SL／sl st', '引拔針'],
+    ['T／hdc', '中長針'],
+    ['F／dc', '長針'],
+    ['E／tr', '長長針']
+  ] },
+  { title: '🌼 加針｜鉤在同一個針目', rows: [
+    ['V', '同一針目鉤 2 短針'],
+    ['W', '同一針目鉤 3 短針'],
+    ['FV', '同一針目鉤 2 長針'],
+    ['EV', '同一針目鉤 2 長長針']
+  ] },
+  { title: '🌼 減針｜多個針目合併', rows: [
+    ['A', '2 針合併成 1 短針'],
+    ['M', '3 針合併成 1 短針']
+  ] },
+  { title: '🌼 起針與挑針方式', rows: [
+    ['MR', '環形起針（魔術環）'],
+    ['BLO', '後半針／內半針', '只挑針目後側（離自己遠）的半個 V 鉤'],
+    ['FLO', '前半針／外半針', '只挑針目前側（離自己近）的半個 V 鉤'],
+    ['起立針', '用鎖針墊高，方便開始新的一行或一圈', '短針起立 1 鎖針，通常不算一針']
+  ] },
+  { title: '📖 圖解怎麼看', rows: [
+    ['R1、R2', '第 1 圈、第 2 圈', '片鉤時也可能指行數；中文圖解片鉤常寫 H1、H2'],
+    ['6X', '連續鉤 6 個短針'],
+    ['6V', '連續鉤 6 個加針，完成後共 12 針'],
+    ['(X、V)×6', '「1 短針、1 加針」重複 6 次', '也常寫成 6(X、V)'],
+    ['18X', '不加不減：每個針目各鉤 1 短針，共 18 針'],
+    ['(18)', '圈數後面括號裡的數字：這圈鉤完的總針數']
+  ] },
+  { title: '💡 針法小口訣', rows: [
+    ['中長針', '先繞線 1 次，一次過 3 圈'],
+    ['長針', '先繞線 1 次，分兩次各過 2 圈'],
+    ['長長針', '先繞線 2 次，分三次各過 2 圈']
+  ] }
+];
+function openGuide() {
+  openSheet('📚 鉤針符號小知識', h('div', null,
+    GUIDE.map(sec => [
+      h('div', { class: 'kb-sec' }, sec.title),
+      sec.rows.map(r => h('div', { class: 'kb-row' },
+        h('span', { class: 'kb-code' }, r[0]),
+        h('span', { class: 'kb-text' }, r[1], r[2] ? h('small', null, r[2]) : null)))
+    ]),
+    h('div', { class: 'kb-note' },
+      '📌 各作者的符號可能不同，請優先看該份圖解的說明。例如有的作者會把 EV 當成「長長針」本身，就要照原作者的定義。英文縮寫採美式用法。')));
+}
+
 /* ---------- 首頁 ---------- */
 function renderHome() {
   document.body.className = 'home-page';
@@ -454,6 +513,7 @@ function renderHome() {
   $app.replaceChildren(
     h('div', { class: 'topbar' },
       h('h1', null, '🧶 毛線小幫手'),
+      h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
       h('button', { class: 'icon-btn', onclick: openHomeMenu, 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'wrap stack' },
       items.length ? items : h('div', { class: 'empty' },
@@ -555,6 +615,7 @@ function renderProject() {
     h('div', { class: 'topbar' },
       h('button', { class: 'icon-btn', onclick: () => go('home'), 'aria-label': '回作品清單' }, '‹'),
       h('h1', null, project.title),
+      h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
       (project.images || []).length ? h('button', { class: 'icon-btn', onclick: () => openViewer(project, 0), 'aria-label': '看原圖' }, '🖼️') : null,
       h('button', { class: 'icon-btn', onclick: () => openProjectMenu(), 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'parts' }, chips),
