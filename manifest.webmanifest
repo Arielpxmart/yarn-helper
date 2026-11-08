@@ -1,0 +1,14 @@
+{
+  "name": "毛線小幫手",
+  "short_name": "毛線小幫手",
+  "lang": "zh-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#f3f6f4",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

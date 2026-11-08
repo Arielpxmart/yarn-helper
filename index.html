@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="sage">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="毛線小幫手">
+<meta name="theme-color" content="#f3f6f4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>毛線小幫手</title>
+<style>
+  :root, [data-theme="sage"] {
+    --bg: #f3f6f4; --card: #ffffff; --line: #dbe4de;
+    --primary: #5f7d6b; --primary-press: #4d6858; --primary-soft: #e6eee8;
+    --text: #22302a; --muted: #5f6f66; --accent: #c9765f; --warn-bg: #fff4e5; --warn: #9a5a00;
+  }
+  [data-theme="milktea"] {
+    --bg: #f8f5f0; --card: #ffffff; --line: #e8ded4;
+    --primary: #93735a; --primary-press: #7a5f49; --primary-soft: #f2eae1;
+    --text: #3b2f25; --muted: #756455; --accent: #c4765d; --warn-bg: #fff4e5; --warn: #9a5a00;
+  }
+  [data-theme="lavender"] {
+    --bg: #f5f3f8; --card: #ffffff; --line: #e2dcee;
+    --primary: #74688a; --primary-press: #5f5473; --primary-soft: #ece8f4;
+    --text: #312a3b; --muted: #6a6079; --accent: #c86d8d; --warn-bg: #fff4e5; --warn: #9a5a00;
+  }
+  [data-theme="dark"] {
+    --bg: #161b18; --card: #212824; --line: #34403a;
+    --primary: #7fa58d; --primary-press: #6a8f78; --primary-soft: #2a3530;
+    --text: #e9efeb; --muted: #9db0a4; --accent: #e59782; --warn-bg: #3a2f1c; --warn: #f2c27a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    font-size: 16px; line-height: 1.5; min-height: 100vh;
+    padding-top: env(safe-area-inset-top);
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: none; background: none; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .hidden { display: none !important; }
+
+  /* 頂部列 */
+  .topbar {
+    position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px; min-height: 52px;
+  }
+  .topbar h1 { font-size: 17px; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { min-width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; padding: 0 8px; }
+  .icon-btn:active { background: var(--primary-soft); }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 14px 16px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+  .btn { border-radius: 14px; padding: 11px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--card); }
+  .btn:active { background: var(--primary-soft); }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:active { background: var(--primary-press); }
+  .btn-danger { color: #c0392b; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .row-flex { display: flex; align-items: center; gap: 8px; }
+  .stack > * + * { margin-top: 12px; }
+
+  /* 首頁 */
+  .proj { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+  .proj-thumb { width: 56px; height: 56px; border-radius: 14px; background: var(--primary-soft); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .proj-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .proj-info { flex: 1; min-width: 0; }
+  .proj-title { font-weight: 700; font-size: 17px; }
+  .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .bar > div { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
+
+  /* 部件分頁 */
+  .parts { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 auto; max-width: 640px; scrollbar-width: none; }
+  .parts::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 7px 14px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .chip.done { color: var(--muted); }
+  .chip .cnt { font-weight: 500; opacity: .85; margin-left: 4px; }
+
+  /* 計數畫面 */
+  .counter-page { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
+  .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .row-label { font-size: 34px; font-weight: 800; color: var(--primary); line-height: 1.1; }
+  .row-meta { font-size: 14px; color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; border-radius: 99px; padding: 3px 10px; background: var(--primary-soft); color: var(--primary); }
+  .tag.change { background: var(--accent); color: #fff; }
+  .instr { font-size: 22px; font-weight: 700; line-height: 1.45; margin: 10px 0 4px; word-break: break-word; }
+  .instr .cseg { border-radius: 8px; padding: 1px 6px; border: 2px solid var(--accent); }
+  .instr .cname { font-size: 13px; font-weight: 800; color: var(--accent); margin-right: 2px; }
+  .raw { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); }
+  .tip { background: var(--primary-soft); border-radius: 12px; padding: 8px 12px; font-size: 15px; margin-top: 10px; white-space: pre-wrap; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 8px 12px; font-size: 14px; margin-top: 10px; }
+
+  .tokens { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .tk { min-width: 34px; height: 34px; padding: 0 6px; border-radius: 10px; border: 1.5px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--card); }
+  .tk.sep { margin-left: 8px; }
+  .tk.k-V { color: var(--primary); border-color: var(--primary); }
+  .tk.k-A { color: var(--accent); border-color: var(--accent); }
+  .tk.col { box-shadow: inset 0 -4px 0 var(--accent); }
+  .tk.done { opacity: .35; }
+  .tk.cur { background: var(--primary); color: #fff; border-color: var(--primary); transform: scale(1.12); }
+
+  .subs { margin: 12px 0 0; padding: 0; list-style: none; }
+  .subs li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; font-size: 17px; }
+  .subs li .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 99px; border: 1.5px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+  .subs li.done { opacity: .4; text-decoration: line-through; }
+  .subs li.cur { background: var(--primary-soft); font-weight: 700; }
+  .subs li.cur .n { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .note-card { border: 2px dashed var(--primary); }
+  .note-text { font-size: 19px; font-weight: 600; white-space: pre-wrap; line-height: 1.6; }
+  .next-prev { font-size: 14px; color: var(--muted); margin-top: 12px; }
+
+  /* 底部按鈕 */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: var(--card); border-top: 1px solid var(--line);
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .dock-in { max-width: 640px; margin: 0 auto; }
+  .dock-count { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin-bottom: 8px; }
+  .dock-count .big { font-size: 30px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .dock-count .of { font-size: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dock-grid { display: grid; grid-template-columns: 64px 1fr 64px; gap: 10px; }
+  .tap {
+    height: 96px; border-radius: 22px; background: var(--primary); color: #fff; font-size: 30px; font-weight: 800;
+    transition: transform .08s, background .15s;
+  }
+  .tap:active { transform: scale(.97); background: var(--primary-press); }
+  .tap.finish { background: var(--accent); font-size: 22px; }
+  .side { height: 96px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); font-size: 14px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .side:active { background: var(--primary-soft); }
+  .side .s-ico { font-size: 22px; }
+  .flash { animation: flash .25s; }
+  @keyframes flash { from { box-shadow: 0 0 0 6px var(--primary-soft); } to { box-shadow: 0 0 0 0 transparent; } }
+
+  /* 底部抽屜與彈窗 */
+  .sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: var(--card); width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .sheet-handle { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 6px auto 10px; }
+  .sheet h2 { font-size: 18px; margin: 4px 0 12px; }
+  .menu-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: 16px; }
+  .menu-item:last-child { border-bottom: none; }
+  .menu-item .mi-ico { width: 28px; text-align: center; font-size: 19px; }
+  .menu-item .mi-right { margin-left: auto; color: var(--muted); font-size: 14px; }
+
+  .steplist button { display: flex; width: 100%; text-align: left; gap: 10px; padding: 10px 8px; border-radius: 12px; align-items: flex-start; }
+  .steplist button.cur { background: var(--primary-soft); }
+  .steplist .sl-label { flex-shrink: 0; width: 52px; font-weight: 800; color: var(--primary); }
+  .steplist .sl-text { flex: 1; min-width: 0; font-size: 14px; }
+  .steplist .done { opacity: .45; }
+
+  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .theme-btn { border-radius: 14px; padding: 12px; border: 2px solid var(--line); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+  .theme-btn.on { border-color: var(--primary); }
+  .theme-dot { width: 16px; height: 16px; border-radius: 99px; }
+
+  .viewer { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+  .viewer-top { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; color: #fff; }
+  .viewer-top .icon-btn { color: #fff; }
+  .viewer-tabs { display: flex; gap: 6px; overflow-x: auto; flex: 1; }
+  .viewer-tabs button { color: #fff; border: 1px solid #555; border-radius: 99px; padding: 5px 12px; font-size: 13px; white-space: nowrap; }
+  .viewer-tabs button.on { background: #fff; color: #000; }
+  .viewer-body { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .viewer-body img { display: block; width: 100%; height: auto; }
+  .viewer-body.zoom img { width: 200%; max-width: none; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(210px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; background: rgba(20,26,23,.92); color: #fff; padding: 10px 16px; border-radius: 14px; font-size: 14px; max-width: 86vw; text-align: center; pointer-events: none; }
+  .home-page .toast, .toast.home { bottom: calc(30px + env(safe-area-inset-bottom)); }
+
+  textarea.paste { width: 100%; min-height: 160px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .info h3 { font-size: 15px; margin: 16px 0 6px; }
+  .info ul { margin: 0; padding-left: 20px; }
+  .info li { margin: 4px 0; }
+  .empty { text-align: center; padding: 40px 10px; }
+  .empty .e-ico { font-size: 52px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="fileInput" class="hidden">
+<script src="core.js"></script>
+<script>
+'use strict';
+const C = window.YarnCore;
+
+/* ---------- 小工具 ---------- */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.appendChild(typeof kid === 'string' || typeof kid === 'number' ? document.createTextNode(String(kid)) : kid);
+  }
+  return el;
+}
+const $app = document.getElementById('app');
+let toastTimer = null;
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = h('div', { class: 'toast' }); document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.toggle('home', view.name === 'home');
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 2400);
+}
+
+/* ---------- 儲存（IndexedDB） ---------- */
+const DB = (() => {
+  let dbp = null;
+  function open() {
+    if (!dbp) dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('yarn-helper', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  async function tx(mode, fn) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('kv', mode);
+      const st = t.objectStore('kv');
+      const out = fn(st);
+      t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('儲存失敗'));
+    });
+  }
+  return {
+    get: k => tx('readonly', st => st.get(k)),
+    set: (k, v) => tx('readwrite', st => st.put(v, k)),
+    del: k => tx('readwrite', st => st.delete(k)),
+    keys: () => tx('readonly', st => st.getAllKeys())
+  };
+})();
+
+/* ---------- 狀態 ---------- */
+const state = {
+  projects: {},      // id -> pattern
+  progress: {},      // id -> { partIdx, parts: { partId: { copy, step, tap, done } }, updated }
+  settings: { theme: 'sage', sound: true, wake: false }
+};
+let view = { name: 'home', id: null };
+const flatCache = new Map();
+
+function flat(project, part) {
+  const key = project.id + '/' + part.id;
+  if (!flatCache.has(key)) flatCache.set(key, C.flattenPart(part));
+  return flatCache.get(key);
+}
+function prog(id) {
+  if (!state.progress[id]) state.progress[id] = { partIdx: 0, parts: {}, updated: Date.now() };
+  return state.progress[id];
+}
+function partProg(id, part) {
+  const p = prog(id);
+  if (!p.parts[part.id]) p.parts[part.id] = { copy: 1, step: 0, tap: 0, done: false };
+  return p.parts[part.id];
+}
+function partCount(part) { return Math.max(1, parseInt(part.count, 10) || 1); }
+
+function projectPercent(project) {
+  let total = 0, done = 0;
+  project.parts.forEach(part => {
+    const n = flat(project, part).length || 1;
+    const cnt = partCount(part);
+    total += n * cnt;
+    const pp = (state.progress[project.id] || { parts: {} }).parts[part.id];
+    if (!pp) return;
+    if (pp.done) done += n * cnt;
+    else done += (pp.copy - 1) * n + Math.min(pp.step, n);
+  });
+  return total ? Math.round(done / total * 100) : 0;
+}
+
+let saveTimer = null;
+function saveProgress(id) {
+  prog(id).updated = Date.now();
+  clearTimeout(saveTimer);
+  const snapshot = JSON.parse(JSON.stringify(state.progress[id]));
+  saveTimer = setTimeout(() => {
+    DB.set('prog:' + id, snapshot).catch(() => toast('⚠️ 進度沒有存起來，手機空間可能不足'));
+  }, 150);
+}
+function saveSettings() { DB.set('settings', state.settings).catch(() => {}); }
+
+async function loadAll() {
+  const keys = await DB.keys();
+  for (const k of keys) {
+    const v = await DB.get(k);
+    if (k === 'settings') Object.assign(state.settings, v || {});
+    else if (String(k).startsWith('proj:')) state.projects[v.id] = v;
+    else if (String(k).startsWith('prog:')) state.progress[String(k).slice(5)] = v;
+  }
+}
+
+/* ---------- 回饋：聲音、螢幕常亮 ---------- */
+let audioCtx = null;
+function beep(freq, dur) {
+  if (!state.settings.sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; g.gain.setValueAtTime(0.07, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+}
+let wakeLock = null;
+async function applyWake() {
+  if (!('wakeLock' in navigator)) return false;
+  try {
+    if (state.settings.wake && !wakeLock && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!state.settings.wake && wakeLock) {
+      await wakeLock.release(); wakeLock = null;
+    }
+    return true;
+  } catch (e) { return false; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') applyWake(); });
+
+/* ---------- 匯入 ---------- */
+async function importPattern(obj) {
+  const errs = C.validatePattern(obj);
+  if (errs.length) { alert('這個檔案不能匯入：\n' + errs.join('\n')); return false; }
+  const exists = !!state.projects[obj.id];
+  if (exists && !confirm('「' + obj.title + '」已經在清單裡了。\n要用新檔案更新織圖內容嗎？（鉤到哪裡的進度會保留）')) return false;
+  try {
+    await DB.set('proj:' + obj.id, obj);
+  } catch (e) {
+    alert('存檔失敗，手機空間可能不足。'); return false;
+  }
+  state.projects[obj.id] = obj;
+  [...flatCache.keys()].filter(k => k.startsWith(obj.id + '/')).forEach(k => flatCache.delete(k));
+  // 部件變了的話，修正超出範圍的進度
+  const p = state.progress[obj.id];
+  if (p) {
+    p.partIdx = Math.min(p.partIdx, obj.parts.length - 1);
+    obj.parts.forEach(part => {
+      const pp = p.parts[part.id];
+      if (!pp) return;
+      const n = flat(obj, part).length;
+      pp.step = Math.min(pp.step, Math.max(0, n - 1));
+      pp.copy = Math.min(pp.copy, partCount(part));
+    });
+    saveProgress(obj.id);
+  }
+  toast((exists ? '已更新：' : '已匯入：') + obj.title);
+  return true;
+}
+async function importBackup(obj) {
+  if (!confirm('要用這份備份還原嗎？\n備份裡有 ' + Object.keys(obj.projects || {}).length + ' 個作品，同名作品的織圖和進度會被備份覆蓋。')) return;
+  for (const [id, pr] of Object.entries(obj.projects || {})) {
+    if (C.validatePattern(pr).length) continue;
+    await DB.set('proj:' + id, pr); state.projects[id] = pr;
+  }
+  for (const [id, pg] of Object.entries(obj.progress || {})) {
+    await DB.set('prog:' + id, pg); state.progress[id] = pg;
+  }
+  flatCache.clear();
+  toast('已還原備份');
+  render();
+}
+async function handleJsonText(text) {
+  let obj;
+  try { obj = JSON.parse(text); } catch (e) { alert('讀不懂這個檔案，請確認是我產出的 .json 織圖檔。'); return; }
+  if (obj && obj.format === 'yarn-backup/1') return importBackup(obj);
+  if (await importPattern(obj)) render();
+}
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  fileInput.value = '';
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => handleJsonText(String(r.result));
+  r.readAsText(f);
+});
+
+function exportBackup() {
+  const data = { format: 'yarn-backup/1', exported: new Date().toISOString(), projects: state.projects, progress: state.progress };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const d = new Date();
+  const name = '毛線小幫手備份_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.json';
+  const a = h('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---------- 抽屜 ---------- */
+function openSheet(title, body) {
+  closeSheet();
+  const bg = h('div', { class: 'sheet-bg', id: 'sheet', onclick: e => { if (e.target === bg) closeSheet(); } },
+    h('div', { class: 'sheet' }, h('div', { class: 'sheet-handle' }), title ? h('h2', null, title) : null, body));
+  document.body.appendChild(bg);
+  return bg;
+}
+function closeSheet() { const s = document.getElementById('sheet'); if (s) s.remove(); }
+
+function openViewer(project, startIdx) {
+  const imgs = project.images || [];
+  if (!imgs.length) { toast('這個作品沒有附照片'); return; }
+  let idx = startIdx || 0;
+  const body = h('div', { class: 'viewer-body' });
+  const tabs = h('div', { class: 'viewer-tabs' });
+  const v = h('div', { class: 'viewer', id: 'viewer' },
+    h('div', { class: 'viewer-top' },
+      tabs,
+      h('button', { class: 'icon-btn', onclick: () => body.classList.toggle('zoom'), 'aria-label': '放大' }, '🔍'),
+      h('button', { class: 'icon-btn', onclick: () => v.remove(), 'aria-label': '關閉' }, '✕')),
+    body);
+  function show() {
+    body.replaceChildren(h('img', { src: imgs[idx].data, alt: imgs[idx].name }));
+    body.scrollTop = 0;
+    tabs.replaceChildren(...imgs.map((im, i) => h('button', { class: i === idx ? 'on' : '', onclick: () => { idx = i; show(); } }, im.name)));
+  }
+  show();
+  document.body.appendChild(v);
+}
+
+/* ---------- 首頁 ---------- */
+function renderHome() {
+  document.body.className = 'home-page';
+  const list = Object.values(state.projects).sort((a, b) =>
+    ((state.progress[b.id] || {}).updated || 0) - ((state.progress[a.id] || {}).updated || 0));
+
+  const items = list.map(p => {
+    const pct = projectPercent(p);
+    const thumb = (p.images || [])[0];
+    return h('button', { class: 'card proj', onclick: () => go('project', p.id) },
+      h('div', { class: 'proj-thumb' }, thumb ? h('img', { src: thumb.data, alt: '' }) : (p.craft === 'knit' ? '🧣' : '🧶')),
+      h('div', { class: 'proj-info' },
+        h('div', { class: 'proj-title' }, p.title),
+        h('div', { class: 'small muted' }, (p.craft === 'knit' ? '棒針' : '鉤針') + '・' + p.parts.length + ' 個部件・' + pct + '%'),
+        h('div', { class: 'bar' }, h('div', { style: 'width:' + pct + '%' }))));
+  });
+
+  $app.replaceChildren(
+    h('div', { class: 'topbar' },
+      h('h1', null, '🧶 毛線小幫手'),
+      h('button', { class: 'icon-btn', onclick: openHomeMenu, 'aria-label': '選單' }, '⋯')),
+    h('div', { class: 'wrap stack' },
+      items.length ? items : h('div', { class: 'empty' },
+        h('div', { class: 'e-ico' }, '🧶'),
+        h('p', null, '還沒有作品'),
+        h('p', { class: 'small muted' }, '把 Claude 轉好的織圖檔（.json）傳到手機，再按下面的「匯入織圖」。')),
+      h('div', { class: 'row-flex', style: 'gap:10px' },
+        h('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => fileInput.click() }, '📥 匯入織圖'),
+        h('button', { class: 'btn', onclick: openPaste }, '貼上'))));
+}
+function openPaste() {
+  const ta = h('textarea', { class: 'paste', placeholder: '把織圖檔的內容整段貼在這裡' });
+  openSheet('貼上織圖內容', h('div', { class: 'stack' }, ta,
+    h('button', { class: 'btn btn-primary', style: 'width:100%', onclick: () => { closeSheet(); handleJsonText(ta.value); } }, '匯入')));
+}
+function openHomeMenu() {
+  openSheet('設定', h('div', null,
+    menuItem('🎨', '色系', themeName(), openThemes),
+    menuItem('💾', '備份全部作品和進度', null, () => { closeSheet(); exportBackup(); }),
+    menuItem('♻️', '從備份還原', null, () => { closeSheet(); fileInput.click(); }),
+    h('p', { class: 'small muted', style: 'margin-top:12px' },
+      '進度只存在這支手機裡。建議把 App「加入主畫面」再使用，並偶爾備份一次；只在 Safari 分頁裡開的話，太久沒用 iPhone 可能會清掉資料。')));
+}
+function menuItem(ico, label, right, onclick) {
+  return h('button', { class: 'menu-item', onclick }, h('span', { class: 'mi-ico' }, ico), h('span', null, label), right ? h('span', { class: 'mi-right' }, right) : null);
+}
+const THEMES = [
+  { id: 'sage', name: '鼠尾草綠', c: '#5f7d6b', bg: '#f3f6f4' },
+  { id: 'milktea', name: '溫潤奶茶', c: '#93735a', bg: '#f8f5f0' },
+  { id: 'lavender', name: '薰衣草紫', c: '#74688a', bg: '#f5f3f8' },
+  { id: 'dark', name: '夜間深綠', c: '#7fa58d', bg: '#161b18' }
+];
+function themeName() { return (THEMES.find(t => t.id === state.settings.theme) || THEMES[0]).name; }
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', state.settings.theme);
+  const t = THEMES.find(x => x.id === state.settings.theme) || THEMES[0];
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', t.bg);
+}
+function openThemes() {
+  openSheet('選擇色系', h('div', { class: 'themes' }, THEMES.map(t =>
+    h('button', { class: 'theme-btn' + (t.id === state.settings.theme ? ' on' : ''), style: 'background:' + t.bg + ';color:' + (t.id === 'dark' ? '#e9efeb' : '#22302a'),
+      onclick: () => { state.settings.theme = t.id; saveSettings(); applyTheme(); closeSheet(); } },
+      h('span', { class: 'theme-dot', style: 'background:' + t.c }), t.name))));
+}
+
+/* ---------- 作品頁（計數） ---------- */
+let tapLockUntil = 0;
+
+function curCtx() {
+  const project = state.projects[view.id];
+  const p = prog(project.id);
+  p.partIdx = Math.min(Math.max(0, p.partIdx), project.parts.length - 1);
+  const part = project.parts[p.partIdx];
+  const steps = flat(project, part);
+  const pp = partProg(project.id, part);
+  pp.step = Math.min(pp.step, Math.max(0, steps.length - 1));
+  return { project, p, part, steps, pp, step: steps[pp.step] };
+}
+
+function renderProject() {
+  document.body.className = '';
+  const { project, p, part, steps, pp, step } = curCtx();
+  const total = C.stepTotal(step);
+  const unit = part.unit || '圈';
+
+  // 部件分頁
+  const chips = project.parts.map((pt, i) => {
+    const ppx = (p.parts[pt.id]) || null;
+    const cnt = partCount(pt);
+    const done = ppx && ppx.done;
+    const label = cnt > 1 ? (done ? cnt : (ppx ? ppx.copy - 1 : 0)) + '/' + cnt : (done ? '✓' : '');
+    return h('button', { class: 'chip' + (i === p.partIdx ? ' on' : '') + (done ? ' done' : ''), onclick: () => switchPart(i) },
+      pt.name, label ? h('span', { class: 'cnt' }, label) : null);
+  });
+
+  let main;
+  if (pp.done) {
+    main = h('div', { class: 'card empty' },
+      h('div', { class: 'e-ico' }, '🎉'),
+      h('p', { style: 'font-weight:700;font-size:18px' }, part.name + (partCount(part) > 1 ? ' ' + partCount(part) + ' 個' : '') + '都完成了！'),
+      h('button', { class: 'btn', onclick: () => { if (confirm('要重新鉤「' + part.name + '」嗎？這個部件的進度會歸零。')) resetPart(); } }, '重新鉤這個部件'));
+  } else if (!step) {
+    main = h('div', { class: 'card' }, '這個部件沒有步驟。');
+  } else if (step.type === 'note') {
+    main = h('div', { class: 'card note-card' },
+      h('div', { class: 'small muted', style: 'margin-bottom:6px' }, '📌 說明（第 ' + (pp.step + 1) + '/' + steps.length + ' 步）'),
+      h('div', { class: 'note-text' }, step.text));
+  } else {
+    main = renderRowCard(project, part, step, pp, total);
+  }
+
+  // 下一步預覽
+  const nextStep = steps[pp.step + 1];
+  const preview = !pp.done && nextStep ? h('div', { class: 'next-prev' }, '下一步：' + (nextStep.type === 'note' ? '📌 ' + firstLine(nextStep.text) : nextStep.label + '　' + plainText(nextStep))) : null;
+
+  const copyInfo = partCount(part) > 1 ? '第 ' + pp.copy + ' 個（共 ' + partCount(part) + ' 個）' : '';
+
+  $app.replaceChildren(
+    h('div', { class: 'topbar' },
+      h('button', { class: 'icon-btn', onclick: () => go('home'), 'aria-label': '回作品清單' }, '‹'),
+      h('h1', null, project.title),
+      (project.images || []).length ? h('button', { class: 'icon-btn', onclick: () => openViewer(project, 0), 'aria-label': '看原圖' }, '🖼️') : null,
+      h('button', { class: 'icon-btn', onclick: () => openProjectMenu(), 'aria-label': '選單' }, '⋯')),
+    h('div', { class: 'parts' }, chips),
+    h('div', { class: 'wrap counter-page stack' },
+      copyInfo && !pp.done ? h('div', { class: 'small muted' }, part.name + '・' + copyInfo) : null,
+      main,
+      preview),
+    pp.done || !step ? null : renderDock(step, pp, total));
+
+  // 目前的部件分頁捲到看得到
+  const on = $app.querySelector('.chip.on');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+  const cur = $app.querySelector('.tk.cur, .subs li.cur');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
+}
+
+function firstLine(t) { return String(t).split('\n')[0].slice(0, 40); }
+function plainText(step) {
+  if (step.segments) return step.segments.map(s => (s.color ? '【' + s.color + '】' : '') + s.t).join('');
+  if (step.text) return step.text;
+  if (step.sub) return step.sub.join('、');
+  return step.raw || '';
+}
+
+function renderRowCard(project, part, step, pp, total) {
+  const unit = part.unit || '圈';
+  const instr = h('div', { class: 'instr' });
+  if (step.segments) {
+    step.segments.forEach(s => {
+      if (s.color) instr.appendChild(h('span', { class: 'cseg' }, h('span', { class: 'cname' }, s.color), s.t));
+      else instr.appendChild(document.createTextNode(s.t));
+    });
+  } else if (step.text) instr.textContent = step.text;
+  else if (step.sub) instr.textContent = '照下面的順序鉤';
+  else instr.textContent = step.raw || '';
+
+  const meta = [];
+  if (step.st != null) meta.push('鉤完共 ' + step.st + ' 針');
+  const head = h('div', { class: 'row-head' },
+    h('div', null,
+      h('div', { class: 'row-label' }, step.label),
+      step.rangeLabel ? h('div', { class: 'row-meta' }, step.rangeLabel) : null),
+    h('div', { style: 'text-align:right' },
+      step.color ? h('div', null, h('span', { class: 'tag' + (step.colorChange ? ' change' : '') }, (step.colorChange ? '換色 → ' : '🧶 ') + step.color)) : null,
+      meta.length ? h('div', { class: 'row-meta', style: 'margin-top:4px' }, meta.join('・')) : null));
+
+  let detail = null;
+  if (step.tokens) {
+    detail = h('div', { class: 'tokens' }, step.tokens.map((tk, i) =>
+      h('span', { class: 'tk k-' + tk.k + (tk.sep && i > 0 ? ' sep' : '') + (tk.color ? ' col' : '') + (i < pp.tap ? ' done' : '') + (i === pp.tap ? ' cur' : '') },
+        C.STITCHES[tk.k].short)));
+  } else if (step.sub) {
+    detail = h('ol', { class: 'subs' }, step.sub.map((s, i) =>
+      h('li', { class: (i < pp.tap ? 'done' : '') + (i === pp.tap ? ' cur' : '') }, h('span', { class: 'n' }, i + 1), h('span', null, s))));
+  }
+
+  return h('div', { class: 'card' },
+    head,
+    instr,
+    step.raw ? h('div', { class: 'raw' }, '原文：' + step.raw) : null,
+    step.tip ? h('div', { class: 'tip' }, '💡 ' + step.tip) : null,
+    step.warnings.map(w => h('div', { class: 'warn' }, '⚠️ ' + w)),
+    detail);
+}
+
+function renderDock(step, pp, total) {
+  const isNote = step.type === 'note';
+  const reached = !isNote && total > 0 && pp.tap >= total;
+  let countEl;
+  if (isNote) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'of' }, '看完說明再按「完成這一步」'));
+  else if (step.sub) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 步'));
+  else if (step.tokens && step.st !== total) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 下'), h('span', { class: 'small muted' }, '（加減針都只按一下）'));
+  else if (total > 0) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 針'));
+  else countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '針（自由計數）'));
+
+  const mainLabel = isNote ? '完成這一步 ✓' : reached ? '完成這' + (curUnit()) + ' ✓' : '+1';
+  return h('div', { class: 'dock' }, h('div', { class: 'dock-in' },
+    countEl,
+    h('div', { class: 'dock-grid' },
+      h('button', { class: 'side', onclick: onMinus, 'aria-label': '減一' }, h('span', { class: 's-ico' }, '−'), h('span', null, isNote || pp.tap === 0 ? '上一步' : '−1')),
+      h('button', { class: 'tap' + (isNote || reached ? ' finish' : ''), id: 'tapBtn', onclick: onTap }, mainLabel),
+      h('button', { class: 'side', onclick: onFinishEarly, 'aria-label': '下一步' }, h('span', { class: 's-ico' }, '⏭'), h('span', null, '跳下一步')))));
+}
+function curUnit() { const { part } = curCtx(); return part.unit === '行' ? '行' : '圈'; }
+
+function onTap() {
+  if (Date.now() < tapLockUntil) return;
+  const { project, pp, step } = curCtx();
+  const total = C.stepTotal(step);
+  if (step.type === 'note' || (total > 0 && pp.tap >= total)) { finishStep(); return; }
+  pp.tap++;
+  beep(760, 0.04);
+  if (total > 0 && pp.tap >= total) {
+    tapLockUntil = Date.now() + 700; // 防止連按直接跳到下一圈
+    beep(980, 0.12);
+  }
+  saveProgress(project.id);
+  render();
+  const b = document.getElementById('tapBtn'); if (b) b.classList.add('flash');
+}
+function onMinus() {
+  const { project, pp, steps } = curCtx();
+  if (pp.tap > 0) { pp.tap--; beep(480, 0.04); saveProgress(project.id); render(); return; }
+  if (pp.step === 0) { toast('已經是第一步了'); return; }
+  pp.step--; pp.tap = 0;
+  beep(420, 0.05);
+  saveProgress(project.id); render();
+  toast('回到上一步：' + (steps[pp.step].label || '說明'));
+}
+function onFinishEarly() {
+  const { step, pp } = curCtx();
+  const total = C.stepTotal(step);
+  if (step.type === 'row' && total > 0 && pp.tap < total) {
+    if (!confirm('這' + curUnit() + '還沒數完（' + pp.tap + '/' + total + '），確定直接跳到下一步？')) return;
+  }
+  finishStep();
+}
+function finishStep() {
+  const { project, p, part, steps, pp } = curCtx();
+  beep(660, 0.08);
+  if (pp.step < steps.length - 1) {
+    pp.step++; pp.tap = 0;
+    saveProgress(project.id); render(); return;
+  }
+  // 這個部件的這一個完成了
+  const cnt = partCount(part);
+  if (pp.copy < cnt) {
+    pp.copy++; pp.step = 0; pp.tap = 0;
+    saveProgress(project.id); render();
+    toast('🎉 ' + part.name + ' 第 ' + (pp.copy - 1) + ' 個完成！開始第 ' + pp.copy + ' 個');
+    return;
+  }
+  pp.done = true; pp.tap = 0;
+  const nextIdx = project.parts.findIndex((pt, i) => i !== p.partIdx && !((p.parts[pt.id] || {}).done));
+  saveProgress(project.id);
+  if (nextIdx >= 0) {
+    p.partIdx = nextIdx;
+    render();
+    toast('🎉 ' + part.name + ' 完成！接著鉤「' + project.parts[nextIdx].name + '」');
+  } else {
+    render();
+    toast('🎉 整個作品都完成了！');
+  }
+}
+function switchPart(i) {
+  const { project, p } = curCtx();
+  p.partIdx = i; saveProgress(project.id); render();
+}
+function resetPart() {
+  const { project, part } = curCtx();
+  prog(project.id).parts[part.id] = { copy: 1, step: 0, tap: 0, done: false };
+  saveProgress(project.id); render();
+}
+function jumpTo(i) {
+  const { project, pp } = curCtx();
+  pp.step = i; pp.tap = 0; pp.done = false;
+  saveProgress(project.id); closeSheet(); render();
+}
+
+function openProjectMenu() {
+  const { project, part, pp } = curCtx();
+  const wakeSupported = 'wakeLock' in navigator;
+  openSheet(project.title, h('div', null,
+    menuItem('📋', '「' + part.name + '」全部步驟', '跳到某一步', openStepList),
+    menuItem('📖', '材料、符號與說明', null, openInfo),
+    (project.images || []).length ? menuItem('🖼️', '看原圖照片', (project.images.length) + ' 張', () => { closeSheet(); openViewer(project, 0); }) : null,
+    partCount(part) > 1 ? menuItem('🔢', '目前在鉤第幾個「' + part.name + '」', '第 ' + pp.copy + ' 個', openCopyPicker) : null,
+    menuItem('💡', '螢幕常亮', wakeSupported ? (state.settings.wake ? '開' : '關') : '這支手機不支援', async () => {
+      if (!wakeSupported) return;
+      state.settings.wake = !state.settings.wake; saveSettings();
+      const ok = await applyWake();
+      closeSheet();
+      toast(state.settings.wake ? (ok ? '螢幕常亮已開啟' : '螢幕常亮開啟失敗') : '螢幕常亮已關閉');
+    }),
+    menuItem('🔔', '按鍵音效', state.settings.sound ? '開' : '關', () => { state.settings.sound = !state.settings.sound; saveSettings(); closeSheet(); toast('音效已' + (state.settings.sound ? '開啟' : '關閉')); }),
+    menuItem('🎨', '色系', themeName(), openThemes),
+    menuItem('🔄', '重新鉤「' + part.name + '」', null, () => { if (confirm('要把「' + part.name + '」的進度歸零嗎？')) { closeSheet(); resetPart(); } }),
+    h('button', { class: 'menu-item btn-danger', onclick: () => deleteProject(project) }, h('span', { class: 'mi-ico' }, '🗑️'), h('span', null, '刪除這個作品'))));
+}
+function openCopyPicker() {
+  const { project, part, pp } = curCtx();
+  const cnt = partCount(part);
+  openSheet('目前在鉤第幾個「' + part.name + '」', h('div', null, Array.from({ length: cnt }, (_, i) =>
+    menuItem(i + 1 === pp.copy ? '●' : '○', '第 ' + (i + 1) + ' 個', null, () => {
+      pp.copy = i + 1; pp.done = false; saveProgress(project.id); closeSheet(); render();
+    }))));
+}
+function openStepList() {
+  const { part, steps, pp } = curCtx();
+  const list = h('div', { class: 'steplist' }, steps.map((s, i) =>
+    h('button', { class: (i === pp.step ? 'cur' : '') + (i < pp.step || pp.done ? ' done' : ''), onclick: () => jumpTo(i) },
+      h('span', { class: 'sl-label' }, s.type === 'note' ? '📌' : s.label),
+      h('span', { class: 'sl-text' }, s.type === 'note' ? firstLine(s.text) : plainText(s) + (s.st != null ? '（' + s.st + ' 針）' : '') + (s.warnings.length ? ' ⚠️' : '')))));
+  const sh = openSheet('「' + part.name + '」全部步驟', list);
+  const cur = sh.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
+}
+function openInfo() {
+  const { project } = curCtx();
+  const legend = (project.legend || Object.keys(C.LEGEND_TEXT)).filter(k => C.LEGEND_TEXT[k]);
+  openSheet('材料、符號與說明', h('div', { class: 'info' },
+    project.materials && project.materials.length ? [h('h3', null, '🧶 材料'), h('ul', null, project.materials.map(m => h('li', null, m)))] : null,
+    h('h3', null, '🔤 符號'),
+    h('ul', null, legend.map(k => h('li', null, h('b', null, k), '：' + C.LEGEND_TEXT[k]))),
+    project.notes && project.notes.length ? [h('h3', null, '📝 說明'), h('ul', null, project.notes.map(m => h('li', null, m)))] : null,
+    h('h3', null, '🧩 部件'),
+    h('ul', null, project.parts.map(pt => h('li', null, pt.name + (partCount(pt) > 1 ? ' × ' + partCount(pt) : '') + (pt.color ? '（' + pt.color + '）' : '')))),
+    project.source ? [h('h3', null, '📎 出處'), h('p', { class: 'small muted', style: 'margin:0' }, project.source)] : null));
+}
+async function deleteProject(project) {
+  if (!confirm('確定要刪除「' + project.title + '」？織圖和進度都會從這支手機刪掉。')) return;
+  await DB.del('proj:' + project.id); await DB.del('prog:' + project.id);
+  delete state.projects[project.id]; delete state.progress[project.id];
+  closeSheet(); go('home'); toast('已刪除');
+}
+
+/* ---------- 路由 ---------- */
+function go(name, id) {
+  view = { name, id: id || null };
+  const t = document.querySelector('.toast'); if (t) t.classList.add('hidden');
+  try { sessionStorage.setItem('view', JSON.stringify(view)); } catch (e) {}
+  window.scrollTo(0, 0);
+  render();
+}
+function render() {
+  if (view.name === 'project' && state.projects[view.id]) renderProject();
+  else { view = { name: 'home', id: null }; renderHome(); }
+}
+
+(async function init() {
+  try { await loadAll(); } catch (e) { toast('讀取資料失敗：' + e.message); }
+  applyTheme();
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('view') || 'null');
+    if (saved && saved.name === 'project' && state.projects[saved.id]) view = saved;
+  } catch (e) {}
+  render();
+  applyWake();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
