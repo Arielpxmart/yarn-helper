@@ -1,5 +1,5 @@
 // 離線快取：改了 App 檔案就把版本號 +1，手機重開後會更新
-const CACHE = 'yarn-helper-v4';
+const CACHE = 'yarn-helper-v5';
 const ASSETS = ['./', './index.html', './core.js', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

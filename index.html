@@ -175,6 +175,42 @@
   .info h3 { font-size: 15px; margin: 16px 0 6px; }
   .info ul { margin: 0; padding-left: 20px; }
   .info li { margin: 4px 0; }
+  /* 計數／完整織圖切換 */
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--primary-soft); border-radius: 14px; padding: 4px; gap: 4px; }
+  .seg button { border-radius: 10px; padding: 9px 0; font-weight: 700; font-size: 15px; color: var(--muted); }
+  .seg button.on { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .st-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 22px; }
+  .st-line b { font-size: 26px; color: var(--primary); }
+  .delta { display: inline-block; font-size: 13px; font-weight: 800; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+  .delta.up { background: var(--primary); color: #fff; }
+  .delta.down { background: var(--accent); color: #fff; }
+  .delta.flat { background: var(--line); color: var(--muted); }
+
+  /* 完整織圖 */
+  .fp { padding: 6px 0; }
+  .fp-head { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 14px 10px; font-weight: 800; border-bottom: 1px solid var(--line); }
+  .fp-row { display: flex; width: 100%; text-align: left; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .fp-row:last-child { border-bottom: none; }
+  .fp-row.done { opacity: .45; }
+  .fp-row.cur { background: var(--primary-soft); box-shadow: inset 4px 0 0 var(--primary); }
+  .fp-label { flex-shrink: 0; width: 62px; font-weight: 800; color: var(--primary); font-size: 15px; }
+  .fp-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .fp-instr { font-size: 15px; font-weight: 600; word-break: break-word; }
+  .fp-instr .cseg { border-radius: 6px; padding: 0 4px; border: 1.5px solid var(--accent); }
+  .fp-instr .cname { font-size: 11px; font-weight: 800; color: var(--accent); margin-right: 2px; }
+  .fp-note .fp-instr { font-weight: 500; color: var(--muted); white-space: pre-wrap; font-size: 14px; }
+  .fp-color { font-size: 12px; font-weight: 700; color: var(--accent); }
+  .fp-warn { font-size: 12px; color: var(--warn); }
+  .fp-curnote { font-size: 12px; font-weight: 700; color: var(--primary); }
+  .fp-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 70px; }
+  .fp-st { font-weight: 800; font-size: 15px; white-space: nowrap; }
+
+  .dock-info { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .dock-grid2 { display: grid; grid-template-columns: 84px 1fr; gap: 10px; }
+  .dock-grid2 .tap { font-size: 24px; height: 84px; }
+  .dock-grid2 .side { height: 84px; }
+  .counter-page { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+
   .kb-sec { margin: 18px 0 6px; font-size: 16px; font-weight: 800; color: var(--primary); }
   .kb-row { display: flex; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); align-items: baseline; }
   .kb-row:last-child { border-bottom: none; }
@@ -292,12 +328,12 @@ function projectPercent(project) {
   return total ? Math.round(done / total * 100) : 0;
 }
 
-let saveTimer = null;
+const saveTimers = {};
 function saveProgress(id) {
   prog(id).updated = Date.now();
-  clearTimeout(saveTimer);
+  clearTimeout(saveTimers[id]);
   const snapshot = JSON.parse(JSON.stringify(state.progress[id]));
-  saveTimer = setTimeout(() => {
+  saveTimers[id] = setTimeout(() => {
     DB.set('prog:' + id, snapshot).catch(() => toast('⚠️ 進度沒有存起來，手機空間可能不足'));
   }, 150);
 }
@@ -559,7 +595,7 @@ function openThemes() {
       h('span', { class: 'theme-dot', style: 'background:' + t.c }), t.name))));
 }
 
-/* ---------- 作品頁（計數） ---------- */
+/* ---------- 作品頁 ---------- */
 let tapLockUntil = 0;
 
 function curCtx() {
@@ -572,16 +608,26 @@ function curCtx() {
   pp.step = Math.min(pp.step, Math.max(0, steps.length - 1));
   return { project, p, part, steps, pp, step: steps[pp.step] };
 }
+function unitOf(part) { return part.unit === '行' ? '行' : '圈'; }
+function rowStats(steps, idx) {
+  const rows = steps.filter(s => s.type === 'row');
+  const done = steps.slice(0, idx).filter(s => s.type === 'row').length;
+  return { total: rows.length, no: done + 1 };
+}
+function deltaText(d) {
+  if (d == null) return null;
+  if (d > 0) return '加 ' + d + ' 針';
+  if (d < 0) return '減 ' + (-d) + ' 針';
+  return '不加減';
+}
 
 function renderProject() {
   document.body.className = '';
   const { project, p, part, steps, pp, step } = curCtx();
-  const total = C.stepTotal(step);
-  const unit = part.unit || '圈';
+  const mode = state.settings.mode === 'full' ? 'full' : 'count';
 
-  // 部件分頁
   const chips = project.parts.map((pt, i) => {
-    const ppx = (p.parts[pt.id]) || null;
+    const ppx = p.parts[pt.id] || null;
     const cnt = partCount(pt);
     const done = ppx && ppx.done;
     const label = cnt > 1 ? (done ? cnt : (ppx ? ppx.copy - 1 : 0)) + '/' + cnt : (done ? '✓' : '');
@@ -589,8 +635,16 @@ function renderProject() {
       pt.name, label ? h('span', { class: 'cnt' }, label) : null);
   });
 
+  const toggle = h('div', { class: 'seg' },
+    h('button', { class: mode === 'count' ? 'on' : '', onclick: () => setMode('count') }, '🔢 計數'),
+    h('button', { class: mode === 'full' ? 'on' : '', onclick: () => setMode('full') }, '📋 完整織圖'));
+
+  const copyInfo = partCount(part) > 1 && !pp.done ? part.name + '・第 ' + pp.copy + ' 個（共 ' + partCount(part) + ' 個）' : null;
+
   let main;
-  if (pp.done) {
+  if (mode === 'full') {
+    main = renderFullPattern(part, steps, pp);
+  } else if (pp.done) {
     main = h('div', { class: 'card empty' },
       h('div', { class: 'e-ico' }, '🎉'),
       h('p', { style: 'font-weight:700;font-size:18px' }, part.name + (partCount(part) > 1 ? ' ' + partCount(part) + ' 個' : '') + '都完成了！'),
@@ -599,17 +653,16 @@ function renderProject() {
     main = h('div', { class: 'card' }, '這個部件沒有步驟。');
   } else if (step.type === 'note') {
     main = h('div', { class: 'card note-card' },
-      h('div', { class: 'small muted', style: 'margin-bottom:6px' }, '📌 說明（第 ' + (pp.step + 1) + '/' + steps.length + ' 步）'),
+      h('div', { class: 'small muted', style: 'margin-bottom:6px' }, '📌 說明'),
       h('div', { class: 'note-text' }, step.text));
   } else {
-    main = renderRowCard(project, part, step, pp, total);
+    main = renderRowCard(part, steps, step, pp);
   }
 
-  // 下一步預覽
   const nextStep = steps[pp.step + 1];
-  const preview = !pp.done && nextStep ? h('div', { class: 'next-prev' }, '下一步：' + (nextStep.type === 'note' ? '📌 ' + firstLine(nextStep.text) : nextStep.label + '　' + plainText(nextStep))) : null;
-
-  const copyInfo = partCount(part) > 1 ? '第 ' + pp.copy + ' 個（共 ' + partCount(part) + ' 個）' : '';
+  const preview = mode === 'count' && !pp.done && nextStep
+    ? h('div', { class: 'next-prev' }, '下一步：' + (nextStep.type === 'note' ? '📌 ' + firstLine(nextStep.text) : nextStep.label + '　' + plainText(nextStep) + (nextStep.st != null ? '（' + nextStep.st + ' 針）' : '')))
+    : null;
 
   $app.replaceChildren(
     h('div', { class: 'topbar' },
@@ -620,127 +673,149 @@ function renderProject() {
       h('button', { class: 'icon-btn', onclick: () => openProjectMenu(), 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'parts' }, chips),
     h('div', { class: 'wrap counter-page stack' },
-      copyInfo && !pp.done ? h('div', { class: 'small muted' }, part.name + '・' + copyInfo) : null,
+      toggle,
+      copyInfo ? h('div', { class: 'small muted' }, copyInfo) : null,
       main,
       preview),
-    pp.done || !step ? null : renderDock(step, pp, total));
+    pp.done || !step ? null : renderDock(part, steps, step, pp));
 
-  // 目前的部件分頁捲到看得到
   const on = $app.querySelector('.chip.on');
   if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
-  const cur = $app.querySelector('.tk.cur, .subs li.cur');
-  if (cur) cur.scrollIntoView({ block: 'nearest' });
+  if (mode === 'full') {
+    const cur = $app.querySelector('.fp-row.cur');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+  }
+}
+function setMode(m) {
+  state.settings.mode = m; saveSettings();
+  window.scrollTo(0, 0); render();
 }
 
 function firstLine(t) { return String(t).split('\n')[0].slice(0, 40); }
 function plainText(step) {
   if (step.segments) return step.segments.map(s => (s.color ? '【' + s.color + '】' : '') + s.t).join('');
   if (step.text) return step.text;
-  if (step.sub) return step.sub.join('、');
+  if (step.sub) return step.sub.join(' → ');
   return step.raw || '';
 }
-
-function renderRowCard(project, part, step, pp, total) {
-  const unit = part.unit || '圈';
-  const instr = h('div', { class: 'instr' });
+function instrNode(step, cls) {
+  const el = h('div', { class: cls });
   if (step.segments) {
     step.segments.forEach(s => {
-      if (s.color) instr.appendChild(h('span', { class: 'cseg' }, h('span', { class: 'cname' }, s.color), s.t));
-      else instr.appendChild(document.createTextNode(s.t));
+      if (s.color) el.appendChild(h('span', { class: 'cseg' }, h('span', { class: 'cname' }, s.color), s.t));
+      else el.appendChild(document.createTextNode(s.t));
     });
-  } else if (step.text) instr.textContent = step.text;
-  else if (step.sub) instr.textContent = '照下面的順序鉤';
-  else instr.textContent = step.raw || '';
+  } else if (step.text) el.textContent = step.text;
+  else if (step.sub) el.textContent = step.sub.join(' → ');
+  else el.textContent = step.raw || '';
+  return el;
+}
 
-  const meta = [];
-  if (step.st != null) meta.push('鉤完共 ' + step.st + ' 針');
-  const head = h('div', { class: 'row-head' },
-    h('div', null,
-      h('div', { class: 'row-label' }, step.label),
-      step.rangeLabel ? h('div', { class: 'row-meta' }, step.rangeLabel) : null),
-    h('div', { style: 'text-align:right' },
-      step.color ? h('div', null, h('span', { class: 'tag' + (step.colorChange ? ' change' : '') }, (step.colorChange ? '換色 → ' : '🧶 ') + step.color)) : null,
-      meta.length ? h('div', { class: 'row-meta', style: 'margin-top:4px' }, meta.join('・')) : null));
-
-  let detail = null;
-  if (step.tokens) {
-    detail = h('div', { class: 'tokens' }, step.tokens.map((tk, i) =>
-      h('span', { class: 'tk k-' + tk.k + (tk.sep && i > 0 ? ' sep' : '') + (tk.color ? ' col' : '') + (i < pp.tap ? ' done' : '') + (i === pp.tap ? ' cur' : '') },
-        C.STITCHES[tk.k].short)));
-  } else if (step.sub) {
-    detail = h('ol', { class: 'subs' }, step.sub.map((s, i) =>
-      h('li', { class: (i < pp.tap ? 'done' : '') + (i === pp.tap ? ' cur' : '') }, h('span', { class: 'n' }, i + 1), h('span', null, s))));
-  }
+function renderRowCard(part, steps, step, pp) {
+  const unit = unitOf(part);
+  const stats = rowStats(steps, pp.step);
+  const dt = deltaText(step.delta);
+  const countLine = step.st != null
+    ? h('div', { class: 'st-line' },
+        step.prevSt != null ? h('span', { class: 'muted' }, step.prevSt + ' → ') : null,
+        h('b', null, step.st + ' 針'),
+        dt ? h('span', { class: 'delta ' + (step.delta > 0 ? 'up' : step.delta < 0 ? 'down' : 'flat') }, dt) : null)
+    : null;
 
   return h('div', { class: 'card' },
-    head,
-    instr,
+    h('div', { class: 'row-head' },
+      h('div', null,
+        h('div', { class: 'row-label' }, step.label),
+        h('div', { class: 'row-meta' }, '第 ' + stats.no + ' / ' + stats.total + ' ' + unit + (step.rangeLabel ? '・' + step.rangeLabel : ''))),
+      step.color ? h('span', { class: 'tag' + (step.colorChange ? ' change' : '') }, (step.colorChange ? '換色 → ' : '🧶 ') + step.color) : null),
+    countLine,
+    step.sub && !step.segments && !step.text ? null : instrNode(step, 'instr'),
+    step.sub ? h('ol', { class: 'subs' }, step.sub.map((s, i) => h('li', null, h('span', { class: 'n' }, i + 1), h('span', null, s)))) : null,
     step.raw ? h('div', { class: 'raw' }, '原文：' + step.raw) : null,
     step.tip ? h('div', { class: 'tip' }, '💡 ' + step.tip) : null,
-    step.warnings.map(w => h('div', { class: 'warn' }, '⚠️ ' + w)),
-    detail);
+    step.warnings.map(w => h('div', { class: 'warn' }, '⚠️ ' + w)));
 }
 
-function renderDock(step, pp, total) {
+// 完整織圖：同一行原文（例如 R19～21）合併成一列
+function renderFullPattern(part, steps, pp) {
+  const groups = [];
+  steps.forEach((s, i) => {
+    const last = groups[groups.length - 1];
+    if (s.type === 'row' && last && last.type === 'row' && last.group === s.group) { last.idx.push(i); return; }
+    groups.push({ type: s.type, group: s.group, idx: [i], step: s });
+  });
+  const unit = unitOf(part);
+  const list = groups.map(g => {
+    const s = g.step;
+    const first = g.idx[0], lastIdx = g.idx[g.idx.length - 1];
+    const isCur = !pp.done && pp.step >= first && pp.step <= lastIdx;
+    const isDone = pp.done || pp.step > lastIdx;
+    const cls = 'fp-row' + (isCur ? ' cur' : '') + (isDone ? ' done' : '');
+    const onclick = () => {
+      const target = isCur ? pp.step : first;
+      if (target === pp.step && !pp.done) return;
+      if (confirm('要把目前進度移到「' + (s.type === 'note' ? '說明' : steps[target].label) + '」嗎？')) jumpTo(target);
+    };
+    if (s.type === 'note') {
+      return h('button', { class: cls + ' fp-note', onclick }, h('span', { class: 'fp-label' }, '📌'), h('span', { class: 'fp-instr' }, s.text));
+    }
+    const label = g.idx.length > 1 ? s.label + '～' + steps[lastIdx].label.replace(/^[A-Z]+/, '') : s.label;
+    const dt = deltaText(s.delta);
+    const curNote = isCur && g.idx.length > 1 ? '目前第 ' + (pp.step - first + 1) + '/' + g.idx.length + ' ' + unit : null;
+    return h('button', { class: cls, onclick },
+      h('span', { class: 'fp-label' }, label),
+      h('span', { class: 'fp-mid' },
+        instrNode(s, 'fp-instr'),
+        s.colorChange ? h('span', { class: 'fp-color' }, '換色 → ' + s.color) : null,
+        s.warnings.length ? h('span', { class: 'fp-warn' }, '⚠️ ' + s.warnings[0]) : null,
+        curNote ? h('span', { class: 'fp-curnote' }, '👉 ' + curNote) : null),
+      h('span', { class: 'fp-right' },
+        h('span', { class: 'fp-st' }, s.st != null ? s.st + ' 針' : '—'),
+        dt ? h('span', { class: 'delta ' + (s.delta > 0 ? 'up' : s.delta < 0 ? 'down' : 'flat') }, dt) : null));
+  });
+  return h('div', { class: 'card fp' },
+    h('div', { class: 'fp-head' }, h('span', null, part.name + (part.color ? '（' + part.color + '）' : '')), h('span', { class: 'muted small' }, '點一列可以移動進度')),
+    list);
+}
+
+function renderDock(part, steps, step, pp) {
   const isNote = step.type === 'note';
-  const reached = !isNote && total > 0 && pp.tap >= total;
-  let countEl;
-  if (isNote) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'of' }, '看完說明再按「完成這一步」'));
-  else if (step.sub) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 步'));
-  else if (step.tokens && step.st !== total) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 下'), h('span', { class: 'small muted' }, '（加減針都只按一下）'));
-  else if (total > 0) countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '/ ' + total + ' 針'));
-  else countEl = h('div', { class: 'dock-count' }, h('span', { class: 'big' }, pp.tap), h('span', { class: 'of' }, '針（自由計數）'));
-
-  const mainLabel = isNote ? '完成這一步 ✓' : reached ? '完成這' + (curUnit()) + ' ✓' : '+1';
+  const unit = unitOf(part);
+  const stats = rowStats(steps, pp.step);
+  const info = isNote
+    ? '看完說明再往下'
+    : step.label + (step.st != null ? '・' + step.st + ' 針' : '') + '　（第 ' + stats.no + ' / ' + stats.total + ' ' + unit + '）';
+  const isLast = pp.step >= steps.length - 1;
+  const label = isNote ? '看完了 ✓' : '完成 ' + step.label + ' ✓';
   return h('div', { class: 'dock' }, h('div', { class: 'dock-in' },
-    countEl,
-    h('div', { class: 'dock-grid' },
-      h('button', { class: 'side', onclick: onMinus, 'aria-label': '減一' }, h('span', { class: 's-ico' }, '−'), h('span', null, isNote || pp.tap === 0 ? '上一步' : '−1')),
-      h('button', { class: 'tap' + (isNote || reached ? ' finish' : ''), id: 'tapBtn', onclick: onTap }, mainLabel),
-      h('button', { class: 'side', onclick: onFinishEarly, 'aria-label': '下一步' }, h('span', { class: 's-ico' }, '⏭'), h('span', null, '跳下一步')))));
+    h('div', { class: 'dock-info' }, info),
+    h('div', { class: 'dock-grid2' },
+      h('button', { class: 'side', onclick: onMinus, 'aria-label': '回上一步' }, h('span', { class: 's-ico' }, '↩'), h('span', null, '上一' + (isNote ? '步' : unit))),
+      h('button', { class: 'tap' + (isLast ? ' finish' : ''), id: 'tapBtn', onclick: onTap }, label))));
 }
-function curUnit() { const { part } = curCtx(); return part.unit === '行' ? '行' : '圈'; }
 
 function onTap() {
   if (Date.now() < tapLockUntil) return;
-  const { project, pp, step } = curCtx();
-  const total = C.stepTotal(step);
-  if (step.type === 'note' || (total > 0 && pp.tap >= total)) { finishStep(); return; }
-  pp.tap++;
-  beep(760, 0.04);
-  if (total > 0 && pp.tap >= total) {
-    tapLockUntil = Date.now() + 700; // 防止連按直接跳到下一圈
-    beep(980, 0.12);
-  }
-  saveProgress(project.id);
-  render();
-  const b = document.getElementById('tapBtn'); if (b) b.classList.add('flash');
+  tapLockUntil = Date.now() + 600; // 防止連按跳過兩圈
+  finishStep();
 }
 function onMinus() {
   const { project, pp, steps } = curCtx();
-  if (pp.tap > 0) { pp.tap--; beep(480, 0.04); saveProgress(project.id); render(); return; }
   if (pp.step === 0) { toast('已經是第一步了'); return; }
   pp.step--; pp.tap = 0;
   beep(420, 0.05);
   saveProgress(project.id); render();
-  toast('回到上一步：' + (steps[pp.step].label || '說明'));
-}
-function onFinishEarly() {
-  const { step, pp } = curCtx();
-  const total = C.stepTotal(step);
-  if (step.type === 'row' && total > 0 && pp.tap < total) {
-    if (!confirm('這' + curUnit() + '還沒數完（' + pp.tap + '/' + total + '），確定直接跳到下一步？')) return;
-  }
-  finishStep();
+  toast('回到：' + (steps[pp.step].type === 'note' ? '說明' : steps[pp.step].label));
 }
 function finishStep() {
   const { project, p, part, steps, pp } = curCtx();
-  beep(660, 0.08);
+  beep(700, 0.07);
   if (pp.step < steps.length - 1) {
     pp.step++; pp.tap = 0;
-    saveProgress(project.id); render(); return;
+    saveProgress(project.id); render();
+    const b = document.getElementById('tapBtn'); if (b) b.classList.add('flash');
+    return;
   }
-  // 這個部件的這一個完成了
   const cnt = partCount(part);
   if (pp.copy < cnt) {
     pp.copy++; pp.step = 0; pp.tap = 0;
@@ -779,7 +854,6 @@ function openProjectMenu() {
   const { project, part, pp } = curCtx();
   const wakeSupported = 'wakeLock' in navigator;
   openSheet(project.title, h('div', null,
-    menuItem('📋', '「' + part.name + '」全部步驟', '跳到某一步', openStepList),
     menuItem('📖', '材料、符號與說明', null, openInfo),
     (project.images || []).length ? menuItem('🖼️', '看原圖照片', (project.images.length) + ' 張', () => { closeSheet(); openViewer(project, 0); }) : null,
     partCount(part) > 1 ? menuItem('🔢', '目前在鉤第幾個「' + part.name + '」', '第 ' + pp.copy + ' 個', openCopyPicker) : null,
@@ -802,15 +876,6 @@ function openCopyPicker() {
     menuItem(i + 1 === pp.copy ? '●' : '○', '第 ' + (i + 1) + ' 個', null, () => {
       pp.copy = i + 1; pp.done = false; saveProgress(project.id); closeSheet(); render();
     }))));
-}
-function openStepList() {
-  const { part, steps, pp } = curCtx();
-  const list = h('div', { class: 'steplist' }, steps.map((s, i) =>
-    h('button', { class: (i === pp.step ? 'cur' : '') + (i < pp.step || pp.done ? ' done' : ''), onclick: () => jumpTo(i) },
-      h('span', { class: 'sl-label' }, s.type === 'note' ? '📌' : s.label),
-      h('span', { class: 'sl-text' }, s.type === 'note' ? firstLine(s.text) : plainText(s) + (s.st != null ? '（' + s.st + ' 針）' : '') + (s.warnings.length ? ' ⚠️' : '')))));
-  const sh = openSheet('「' + part.name + '」全部步驟', list);
-  const cur = sh.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
 }
 function openInfo() {
   const { project } = curCtx();

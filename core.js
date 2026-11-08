@@ -173,9 +173,9 @@
     let prevProduced = null;
     let lastColor = part.color || null;
 
-    (part.steps || []).forEach(src => {
+    (part.steps || []).forEach((src, srcIdx) => {
       if (src.note != null) {
-        steps.push({ type: 'note', text: String(src.note) });
+        steps.push({ type: 'note', text: String(src.note), group: srcIdx });
         return;
       }
       const nums = parseRows(src.rows) || [null];
@@ -194,7 +194,10 @@
           segments: null,
           consumed: null,
           warnings: [],
-          colorChange: false
+          colorChange: false,
+          group: srcIdx,
+          prevSt: null,
+          delta: null
         };
         if (step.raw) {
           try {
@@ -213,6 +216,10 @@
         }
         if (prevProduced != null && step.consumed != null && step.consumed !== prevProduced) {
           step.warnings.push('上一圈是 ' + prevProduced + ' 針，這一圈卻要用掉 ' + step.consumed + ' 針，對不上');
+        }
+        if (prevProduced != null && step.st != null) {
+          step.prevSt = prevProduced;
+          step.delta = step.st - prevProduced;
         }
         if (step.color && lastColor && step.color !== lastColor) step.colorChange = true;
         if (step.color) lastColor = step.color;
