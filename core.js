@@ -15,7 +15,8 @@
     EV: { c: 1, p: 2, name: '長長針加針', short: '長長加' },
     M:  { c: 3, p: 1, name: '3 針併 1', short: '併3' },
     SL: { c: 1, p: 1, name: '引拔針', short: '引' },
-    CH: { c: 0, p: 1, name: '鎖針',   short: '鎖' }
+    CH: { c: 0, p: 1, name: '鎖針',   short: '鎖' },
+    K:  { c: 1, p: 0, name: '跳過',   short: '跳', fmt: n => '跳過 ' + n + ' 針' }
   };
 
   const LEGEND_TEXT = {
@@ -30,7 +31,8 @@
     EV: '長長針加針：同一針裡鉤 2 長長針',
     M: '3 針併成 1 短針',
     SL: '引拔針',
-    CH: '鎖針'
+    CH: '鎖針',
+    K: '跳過不鉤（K3 = 跳過 3 針）'
   };
 
   function normalize(raw) {
@@ -40,6 +42,7 @@
       .replace(/[：]/g, ':')
       .replace(/[，、；;]/g, ',')
       .replace(/[×＊]/g, '*')
+      .replace(/K(\d+)/g, '$1K') // K3（跳過 3 針）→ 3K
       .replace(/\s+/g, '');
   }
 
@@ -93,7 +96,7 @@
         return { type: 'color', color, items: inner };
       }
       const rest = s.slice(i);
-      const m = /^(SL|CH|FV|EV|[XVWATFEM])/.exec(rest);
+      const m = /^(SL|CH|FV|EV|[XVWATFEMK])/.exec(rest);
       if (!m) err('看不懂的針法「' + (rest[0] || '') + '」');
       i += m[1].length;
       return { type: 'st', k: m[1], n: n == null ? 1 : n };
@@ -133,7 +136,7 @@
     const segs = [];
     function stText(it) {
       const d = STITCHES[it.k];
-      return it.n + ' ' + d.name;
+      return d.fmt ? d.fmt(it.n) : it.n + ' ' + d.name;
     }
     function inline(items) {
       return items.map(it => {
