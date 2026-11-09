@@ -254,6 +254,10 @@
   .ht-vid .play { font-size: 22px; }
   .ht-vid b { display: block; font-size: 15px; }
   .ht-vid small { color: var(--muted); font-size: 13px; }
+  .about { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .about-title { font-size: 13px; font-weight: 800; color: var(--muted); margin-bottom: 4px; }
+  .about-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; font-size: 15px; }
+  .about-row span:first-child { color: var(--muted); }
   .kb-note { background: var(--primary-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 14px; }
   .empty { text-align: center; padding: 40px 10px; }
   .empty .e-ico { font-size: 52px; }
@@ -267,6 +271,9 @@
 <script>
 'use strict';
 const C = window.YarnCore;
+// 版號：改 App 時和 sw.js 的 CACHE 一起 +1
+const APP_VERSION = { no: 'v8', date: '2026-11-09' };
+const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
 function h(tag, attrs, ...kids) {
@@ -671,7 +678,11 @@ function openHomeMenu() {
     menuItem('💾', '備份全部作品和進度', null, () => { closeSheet(); exportBackup(); }),
     menuItem('♻️', '從備份還原', null, () => { closeSheet(); fileInput.click(); }),
     h('p', { class: 'small muted', style: 'margin-top:12px' },
-      '進度只存在這支手機裡。建議把 App「加入主畫面」再使用，並偶爾備份一次；只在 Safari 分頁裡開的話，太久沒用 iPhone 可能會清掉資料。')));
+      '進度只存在這支手機裡。建議把 App「加入主畫面」再使用，並偶爾備份一次；只在 Safari 分頁裡開的話，太久沒用 iPhone 可能會清掉資料。'),
+    h('div', { class: 'about' },
+      h('div', { class: 'about-title' }, '關於'),
+      h('div', { class: 'about-row' }, h('span', null, '版本'), h('span', null, APP_VERSION.no + '（' + APP_VERSION.date + '）')),
+      h('div', { class: 'about-row' }, h('span', null, '開發者'), h('span', null, DEVELOPER)))));
 }
 function menuItem(ico, label, right, onclick) {
   return h('button', { class: 'menu-item', onclick }, h('span', { class: 'mi-ico' }, ico), h('span', null, label), right ? h('span', { class: 'mi-right' }, right) : null);
