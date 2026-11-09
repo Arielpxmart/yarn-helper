@@ -4,28 +4,34 @@
 
   /*
    * 示意圖的每一格用資料描述，由 drawFrame() 畫出來：
-   *   loops   鉤針上有幾個線圈（不含這一格的繞線）
-   *   yo      針頭上有一個「繞線」（橘色）
-   *   hl      要標成橘色的線圈（0 = 最靠近針頭）
-   *   insert  針插進上一圈的「下一針」
-   *   pull    把線從針目裡拉出來
-   *   through 繞線一次穿過幾個線圈
-   *   post    'short' | 'mid' | 'tall'：完成後的針目高度
-   *   text    這一步的說明
+   *   loops    鉤針上有幾個線圈（不含這一格的繞線）
+   *   yo       針頭上有一個「繞線」（橘色）
+   *   hl       要標成橘色的線圈（0 = 最靠近針頭）；hlLabel 是旁邊的字
+   *   targets  上一圈要用到的針目（0 = 下一針，-1 = 再下一針…），預設 [0]
+   *   insert   針插進哪個針目（targets 裡的編號）
+   *   pull     從哪個針目把線拉出來；pullLabel 是旁邊的字
+   *   tallPull 拉出來的線圈拉高一點（長針類）
+   *   through  繞線一次穿過幾個線圈
+   *   posts    已鉤好的針目：[{ base:[針目], h:'flat'|'short'|'mid'|'tall'|'xtall', dx:左右偏移, old:是否是之前就鉤好的 }]
+   *   postLabel 新針目旁邊的字（預設「新的 1 針」）
+   *   chain    鎖針模式：不畫上一圈，改畫幾個鎖針；chainNew 標出最新的 1 個
+   *   text     這一步的說明
    */
   const VIDEOS = {
     ring_detail: { id: '82WF4_y1dyE', title: '鉤針新手 - 基礎環形起針、短針加針和減針', ch: '樂約創意', len: '11:26' },
     ring_quick:  { id: 'Gvs2E0I3MRg', title: '【環形起針 Magic Ring】基礎鉤針練習', ch: '餓犬手作', len: '4:50' },
     chain:       { id: 'BpwMx4gw-yA', title: '鉤針新手 - 如何拿鉤針毛線和鎖針起針', ch: '樂約創意', len: '11:17' },
     basics:      { id: 'uS-v0UN4v2Q', title: '鉤針編織教學｜短針、中長針、長針、長長針', ch: 'Kamui by Karen', len: '14:02' },
+    basics_slip: { id: '5mv5Di9UQEY', title: '鉤針基礎：引拔針、短針、中長針、長針、長長針', ch: '緹織所', len: '6:43' },
     dc_quick:    { id: '62h39Jatyt8', title: '【鉤針基礎】編織教學-長針', ch: '我愛手藝 ioCraft', len: '1:48' }
   };
+
+  const OLD_SHORT = { base: [0], h: 'short', old: true };
 
   const HOWTO = {
     MR: {
       name: '環形起針（魔術環）',
       summary: '用線繞一個圈當起點，鉤完第 1 圈再拉線頭收緊，中心不會留洞。玩偶幾乎都從這裡開始。',
-      steps: null,
       textSteps: [
         '線頭在手指上繞一圈，交叉處用手指捏住。',
         '鉤針伸進圈裡，鉤住工作線拉出來。',
@@ -33,76 +39,156 @@
         '針伸進圈裡鉤短針，照圖解鉤滿第 1 圈的針數（例如 6X）。',
         '拉線頭把圈收緊，再引拔到第 1 針，第 1 圈完成。'
       ],
+      tip: '手指繞線的動作用圖很難看懂，建議直接看影片。',
       videos: ['ring_detail', 'ring_quick']
     },
     CH: {
       name: '鎖針（辮子針）',
-      summary: '最基本的針法，常用在起針與起立針。',
-      textSteps: [
-        '針上有 1 個線圈。',
-        '繞線（線從後往前掛到針上）。',
-        '把繞線從針上的線圈拉出來，就完成 1 鎖針。'
+      summary: '最基本的針法，用在起針和起立針。',
+      steps: [
+        { loops: 1, yo: true, chain: 2, text: '針上有 1 個線圈。繞線（線從後往前掛到針頭上）。' },
+        { loops: 1, yo: true, through: 1, chain: 2, text: '把繞線從針上的線圈拉出來。' },
+        { loops: 1, chain: 3, chainNew: true, text: '針上又剩 1 個線圈，多了 1 個鎖針！重複就能鉤出一長條辮子。' }
       ],
+      tip: '口訣：繞線、拉出來。鬆緊要一致，太緊下一圈會插不進去。',
       videos: ['chain']
+    },
+    SL: {
+      name: '引拔針',
+      summary: '幾乎沒有高度的針法，用來把一圈接起來、接合或移動位置。',
+      steps: [
+        { loops: 1, insert: 0, text: '針上有 1 個線圈。把針插進下一針。' },
+        { loops: 1, insert: 0, yo: true, text: '繞線。' },
+        { loops: 1, pull: 0, pullLabel: '直接穿過針上的圈', text: '把線拉出來時，一口氣連針上的線圈一起穿過去。' },
+        { loops: 1, posts: [{ base: [0], h: 'flat' }], text: '針上還是 1 個線圈，1 引拔針完成！' }
+      ],
+      tip: '口訣：插、繞、一口氣拉過全部。和短針的差別是：短針分兩次拉，引拔針一次就拉過。',
+      videos: ['basics_slip']
     },
     X: {
       name: '短針',
       summary: '玩偶最常用的針法，矮矮的、很紮實。',
       steps: [
-        { loops: 1, insert: true, text: '針上有 1 個線圈。把針插進上一圈的下一針（挑 V 字上面的 2 條線）。' },
-        { loops: 1, insert: true, yo: true, text: '繞線：線從後往前掛到針頭上。' },
-        { loops: 2, hl: [0], pull: true, text: '把線從針目裡拉出來，針上變成 2 個線圈。' },
+        { loops: 1, insert: 0, text: '針上有 1 個線圈。把針插進上一圈的下一針（挑 V 字上面的 2 條線）。' },
+        { loops: 1, insert: 0, yo: true, text: '繞線：線從後往前掛到針頭上。' },
+        { loops: 2, hl: [0], pull: 0, text: '把線從針目裡拉出來，針上變成 2 個線圈。' },
         { loops: 2, yo: true, through: 2, text: '再繞線，一次穿過針上的 2 個線圈。' },
-        { loops: 1, post: 'short', text: '針上剩 1 個線圈，1 短針完成！' }
+        { loops: 1, posts: [{ base: [0], h: 'short' }], text: '針上剩 1 個線圈，1 短針完成！' }
       ],
       tip: '口訣：插、繞、拉出（2 圈），繞、穿過 2 圈。',
       videos: ['ring_detail', 'basics']
     },
-    V: {
-      name: '短針加針',
-      summary: '在「同一針」裡鉤 2 個短針，這一針就變成 2 針，圈會越鉤越大。',
-      textSteps: [
-        '照平常鉤 1 短針。',
-        '針插回「剛剛同一個針目」，再鉤 1 短針。',
-        '完成：上一圈的 1 針，變成這一圈的 2 針。'
+    T: {
+      name: '中長針',
+      summary: '大約 2 個鎖針高，介於短針和長針之間。',
+      steps: [
+        { loops: 1, yo: true, text: '先繞線 1 次（插針前就繞）。' },
+        { loops: 2, insert: 0, yo: true, text: '針上 2 個線圈。插進下一針，再繞線。' },
+        { loops: 3, hl: [0], pull: 0, tallPull: true, text: '把線拉出來，針上 3 個線圈。' },
+        { loops: 3, yo: true, through: 3, text: '繞線，一次穿過全部 3 個線圈。' },
+        { loops: 1, posts: [{ base: [0], h: 'mid' }], text: '針上剩 1 個線圈，1 中長針完成！' }
       ],
-      see: ['X'],
-      videos: ['ring_detail']
-    },
-    A: {
-      name: '短針減針',
-      summary: '把 2 針併成 1 針，圈會越鉤越小，通常用在收口。',
-      textSteps: [
-        '針插進下一針，繞線拉出來（針上 2 個線圈），先不要鉤完。',
-        '針直接插進再下一針，繞線拉出來（針上 3 個線圈）。',
-        '繞線，一次穿過 3 個線圈。上一圈的 2 針，變成這一圈的 1 針。'
-      ],
-      see: ['X'],
-      tip: '玩偶常用「隱形減針」：只挑 2 針的前半針，再照上面的方法鉤，表面比較平整。',
-      videos: ['ring_detail']
+      tip: '口訣：先繞線 1 次，一次穿過 3 圈。',
+      videos: ['basics', 'basics_slip']
     },
     F: {
       name: '長針',
       summary: '大約 3 個鎖針高，常用在花邊、葉子和裙邊。',
       steps: [
         { loops: 1, yo: true, text: '先繞線 1 次（插針前就繞）。' },
-        { loops: 2, insert: true, yo: true, text: '針上 2 個線圈。插進下一針，再繞線。' },
-        { loops: 3, hl: [0], pull: true, tallPull: true, text: '把線拉出來，拉高一點（約 2 鎖針高），針上 3 個線圈。' },
+        { loops: 2, insert: 0, yo: true, text: '針上 2 個線圈。插進下一針，再繞線。' },
+        { loops: 3, hl: [0], pull: 0, tallPull: true, text: '把線拉出來，拉高一點（約 2 鎖針高），針上 3 個線圈。' },
         { loops: 3, yo: true, through: 2, text: '繞線，穿過「前 2 個」線圈，針上剩 2 個。' },
         { loops: 2, yo: true, through: 2, text: '再繞線，穿過最後 2 個線圈。' },
-        { loops: 1, post: 'tall', text: '針上剩 1 個線圈，1 長針完成！' }
+        { loops: 1, posts: [{ base: [0], h: 'tall' }], text: '針上剩 1 個線圈，1 長針完成！' }
       ],
       tip: '口訣：先繞線 1 次，分兩次各穿過 2 圈。',
       videos: ['basics', 'dc_quick']
     },
+    E: {
+      name: '長長針',
+      summary: '大約 4 個鎖針高，是最高的基本針法。',
+      steps: [
+        { loops: 3, hl: [0, 1], hlLabel: '繞 2 次', text: '先繞線 2 次，針上 3 個線圈。' },
+        { loops: 3, insert: 0, yo: true, text: '插進下一針，再繞線。' },
+        { loops: 4, hl: [0], pull: 0, tallPull: true, text: '把線拉出來（拉高一點），針上 4 個線圈。' },
+        { loops: 4, yo: true, through: 2, text: '繞線，穿過前 2 個，剩 3 個。' },
+        { loops: 3, yo: true, through: 2, text: '繞線，再穿過 2 個，剩 2 個。' },
+        { loops: 2, yo: true, through: 2, text: '繞線，穿過最後 2 個。' },
+        { loops: 1, posts: [{ base: [0], h: 'xtall' }], text: '針上剩 1 個線圈，1 長長針完成！' }
+      ],
+      tip: '口訣：先繞線 2 次，分三次各穿過 2 圈。',
+      videos: ['basics', 'basics_slip']
+    },
+    V: {
+      name: '短針加針',
+      summary: '在「同一針」裡鉤 2 個短針，這一針就變成 2 針，圈會越鉤越大。',
+      steps: [
+        { loops: 1, posts: [OLD_SHORT], insert: 0, text: '先在這一針鉤好 1 短針。接著把針插回「同一個針目」。' },
+        { loops: 2, hl: [0], pull: 0, posts: [OLD_SHORT], text: '繞線拉出來，針上 2 個線圈。' },
+        { loops: 2, yo: true, through: 2, posts: [OLD_SHORT], text: '再繞線，一次穿過 2 個線圈。' },
+        { loops: 1, posts: [{ base: [0], h: 'short', dx: -14, old: true }, { base: [0], h: 'short', dx: 14 }], postLabel: '1 針變 2 針', text: '同一個針目裡有 2 個短針，這圈多了 1 針。' }
+      ],
+      see: ['X'],
+      videos: ['ring_detail']
+    },
+    W: {
+      name: '3 短針加針',
+      summary: '在「同一針」裡鉤 3 個短針，這一針就變成 3 針。常用在轉角或尖端。',
+      steps: [
+        { loops: 1, posts: [OLD_SHORT], insert: 0, text: '先在這一針鉤好 1 短針，再把針插回「同一個針目」。' },
+        { loops: 1, posts: [{ base: [0], h: 'short', dx: -12, old: true }, { base: [0], h: 'short', dx: 12, old: true }], insert: 0, text: '鉤好第 2 個短針，再插回同一個針目。' },
+        { loops: 1, posts: [{ base: [0], h: 'short', dx: -22, old: true }, { base: [0], h: 'short', old: true }, { base: [0], h: 'short', dx: 22 }], postLabel: '1 針變 3 針', text: '鉤第 3 個短針。同一個針目裡有 3 個短針，這圈多了 2 針。' }
+      ],
+      see: ['X', 'V'],
+      videos: ['ring_detail']
+    },
+    A: {
+      name: '短針減針',
+      summary: '把 2 針併成 1 針，圈會越鉤越小，通常用在收口。',
+      steps: [
+        { loops: 2, hl: [0], pull: 0, targets: [0, -1], text: '針插進下一針，繞線拉出來，先不要鉤完。針上 2 個線圈。' },
+        { loops: 3, hl: [0], pull: -1, targets: [0, -1], text: '針直接插進再下一針，繞線拉出來，針上 3 個線圈。' },
+        { loops: 3, yo: true, through: 3, targets: [0, -1], text: '繞線，一次穿過 3 個線圈。' },
+        { loops: 1, posts: [{ base: [0, -1], h: 'short' }], postLabel: '2 針併成 1 針', text: '上一圈的 2 針，變成這一圈的 1 針。' }
+      ],
+      see: ['X'],
+      tip: '玩偶常用「隱形減針」：只挑 2 針的前半針，再照上面的方法鉤，表面比較平整。',
+      videos: ['ring_detail']
+    },
+    M: {
+      name: '3 針併 1',
+      summary: '把 3 針併成 1 針，一次減 2 針，收得比較快。',
+      steps: [
+        { loops: 2, hl: [0], pull: 0, targets: [0, -1, -2], text: '針插進下一針，繞線拉出來，先不要鉤完。針上 2 個線圈。' },
+        { loops: 3, hl: [0], pull: -1, targets: [0, -1, -2], text: '插進再下一針，繞線拉出來，針上 3 個線圈。' },
+        { loops: 4, hl: [0], pull: -2, targets: [0, -1, -2], text: '插進第 3 針，繞線拉出來，針上 4 個線圈。' },
+        { loops: 4, yo: true, through: 4, targets: [0, -1, -2], text: '繞線，一次穿過 4 個線圈。' },
+        { loops: 1, posts: [{ base: [0, -1, -2], h: 'short' }], postLabel: '3 針併成 1 針', text: '上一圈的 3 針，變成這一圈的 1 針。' }
+      ],
+      see: ['X', 'A'],
+      videos: ['ring_detail']
+    },
     FV: {
       name: '長針加針',
       summary: '在「同一針」裡鉤 2 個長針。',
-      textSteps: [
-        '照平常鉤 1 長針。',
-        '針插回「剛剛同一個針目」，再鉤 1 長針。'
+      steps: [
+        { loops: 1, yo: true, posts: [{ base: [0], h: 'tall', old: true }], text: '先在這一針鉤好 1 長針，再繞線。' },
+        { loops: 2, insert: 0, posts: [{ base: [0], h: 'tall', old: true }], text: '針插回「同一個針目」。' },
+        { loops: 1, posts: [{ base: [0], h: 'tall', dx: -14, old: true }, { base: [0], h: 'tall', dx: 14 }], postLabel: '1 針變 2 針', text: '照長針的方法鉤完（繞線拉出，再分兩次各穿過 2 圈）。同一個針目裡有 2 個長針。' }
       ],
       see: ['F'],
+      videos: ['basics']
+    },
+    EV: {
+      name: '長長針加針',
+      summary: '在「同一針」裡鉤 2 個長長針。',
+      steps: [
+        { loops: 1, posts: [{ base: [0], h: 'xtall', old: true }], text: '先在這一針鉤好 1 長長針。' },
+        { loops: 3, hl: [0, 1], hlLabel: '繞 2 次', insert: 0, posts: [{ base: [0], h: 'xtall', old: true }], text: '先繞線 2 次，針插回「同一個針目」。' },
+        { loops: 1, posts: [{ base: [0], h: 'xtall', dx: -14, old: true }, { base: [0], h: 'xtall', dx: 14 }], postLabel: '1 針變 2 針', text: '照長長針的方法鉤完（繞線拉出，再分三次各穿過 2 圈）。' }
+      ],
+      see: ['E'],
       videos: ['basics']
     }
   };
@@ -118,8 +204,12 @@
   }
 
   const W = 320, H = 200;
-  const SHAFT_Y = 72, TIP_X = 70, LOOP_X0 = 112, LOOP_GAP = 26;
-  const ROW_Y = 168, TARGET_X = 92, STITCH_GAP = 50;
+  const SHAFT_Y = 60, TIP_X = 70, LOOP_X0 = 112, LOOP_GAP = 26;
+  const ROW_Y = 168, TARGET_X = 130, STITCH_GAP = 50;
+  const POST_H = { flat: 8, short: 26, mid: 40, tall: 56, xtall: 70 };
+  const SLASHES = { tall: 1, xtall: 2 };
+  const TARGET_NAMES = { 0: '下一針', '-1': '再下一針', '-2': '第 3 針' };
+  const tx = i => TARGET_X + i * STITCH_GAP;
 
   function drawFrame(f) {
     const id = 'ah' + (++uid);
@@ -127,27 +217,50 @@
     svg.appendChild(s('defs', null,
       s('marker', { id, viewBox: '0 0 10 10', refX: 7, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' },
         s('path', { d: 'M0,0 L10,5 L0,10 z', class: 'dg-acc-fill' }))));
+    const arrow = (x1, y1, x2, y2, dash) => s('line', { x1, y1, x2, y2, class: 'dg-arrow' + (dash ? ' dash' : ''), 'marker-end': 'url(#' + id + ')' });
 
-    // 上一圈的針目（俯看是一排 V 字）
-    for (let i = -1; i < 6; i++) {
-      const x = TARGET_X + i * STITCH_GAP;
-      const isT = i === 0;
-      svg.appendChild(s('ellipse', { cx: x, cy: ROW_Y, rx: 20, ry: 7, class: isT && !f.post ? 'dg-target' : 'dg-fabric' }));
-      svg.appendChild(s('line', { x1: x, y1: ROW_Y + 7, x2: x, y2: H, class: 'dg-fabric' }));
-    }
-    if (f.insert && !f.post) {
-      svg.appendChild(s('text', { x: TARGET_X, y: ROW_Y + 25, class: 'dg-small', 'text-anchor': 'middle' }, '下一針'));
+    const posts = f.posts || [];
+    const finished = posts.some(p => !p.old);
+    const targets = finished ? [] : (f.targets || [0]);
+
+    if (f.chain) {
+      // 鎖針：從針上的線圈往下垂的一串辮子
+      svg.appendChild(s('line', { x1: LOOP_X0, y1: SHAFT_Y + 16, x2: LOOP_X0, y2: 122, class: 'dg-fabric' }));
+      for (let k = 0; k < f.chain; k++) {
+        svg.appendChild(s('ellipse', { cx: LOOP_X0 + k * 36, cy: 132, rx: 17, ry: 9, class: k === 0 && f.chainNew ? 'dg-new' : 'dg-fabric' }));
+      }
+      if (f.chainNew) svg.appendChild(s('text', { x: LOOP_X0, y: 165, class: 'dg-small', 'text-anchor': 'middle' }, '新的鎖針'));
+    } else {
+      // 上一圈的針目（俯看是一排 V 字）
+      for (let i = -2; i <= 3; i++) {
+        const x = tx(i);
+        svg.appendChild(s('ellipse', { cx: x, cy: ROW_Y, rx: 20, ry: 7, class: targets.includes(i) ? 'dg-target' : 'dg-fabric' }));
+        svg.appendChild(s('line', { x1: x, y1: ROW_Y + 7, x2: x, y2: H, class: 'dg-fabric' }));
+      }
+      if (targets.length > 1 || f.insert != null) {
+        targets.forEach(i => svg.appendChild(s('text', { x: tx(i), y: ROW_Y + 25, class: 'dg-small', 'text-anchor': 'middle' }, TARGET_NAMES[i])));
+      }
     }
 
-    // 完成的針目
-    if (f.post) {
-      const hgt = f.post === 'short' ? 26 : f.post === 'mid' ? 42 : 58;
+    // 鉤好的針目
+    let labelX = null, labelY = null;
+    posts.forEach(p => {
+      const hgt = POST_H[p.h] || POST_H.short;
+      const bases = p.base.map(tx);
+      const topX = bases.reduce((a, b) => a + b, 0) / bases.length + (p.dx || 0);
       const top = ROW_Y - 7 - hgt;
-      svg.appendChild(s('line', { x1: TARGET_X, y1: ROW_Y - 7, x2: TARGET_X, y2: top + 6, class: 'dg-new' }));
-      if (f.post === 'tall') svg.appendChild(s('line', { x1: TARGET_X - 9, y1: top + hgt / 2 + 4, x2: TARGET_X + 9, y2: top + hgt / 2 - 6, class: 'dg-new' }));
-      svg.appendChild(s('ellipse', { cx: TARGET_X, cy: top, rx: 18, ry: 6, class: 'dg-new' }));
-      svg.appendChild(s('text', { x: TARGET_X + 30, y: top + 4, class: 'dg-label' }, '新的 1 針'));
-    }
+      const cls = p.old ? 'dg-old' : 'dg-new';
+      if (p.h !== 'flat') bases.forEach(bx => svg.appendChild(s('line', { x1: bx, y1: ROW_Y - 7, x2: topX, y2: top + 6, class: cls })));
+      const n = SLASHES[p.h] || 0;
+      for (let k = 1; k <= n; k++) {
+        const t = k / (n + 1);
+        const mx = bases[0] + (topX - bases[0]) * t, my = (ROW_Y - 7) + (top + 6 - (ROW_Y - 7)) * t;
+        svg.appendChild(s('line', { x1: mx - 8, y1: my + 5, x2: mx + 8, y2: my - 5, class: cls }));
+      }
+      svg.appendChild(s('ellipse', { cx: topX, cy: top, rx: 15, ry: 5, class: cls }));
+      if (!p.old && (labelX == null || topX > labelX)) { labelX = topX; labelY = top; }
+    });
+    if (labelX != null) svg.appendChild(s('text', { x: labelX + 24, y: labelY + 5, class: 'dg-label' }, f.postLabel || '新的 1 針'));
 
     // 鉤針：握柄在右，針頭在左
     svg.appendChild(s('rect', { x: 236, y: SHAFT_Y - 9, width: 80, height: 18, rx: 9, class: 'dg-handle' }));
@@ -161,40 +274,41 @@
       const tall = f.tallPull && j === 0;
       svg.appendChild(s('ellipse', { cx: x, cy: SHAFT_Y + (tall ? 6 : 0), rx: 7, ry: tall ? 22 : 16, class: hl.includes(j) ? 'dg-loop hl' : 'dg-loop' }));
     }
+    if (f.hlLabel && hl.length) {
+      const cx = LOOP_X0 + (hl.reduce((a, b) => a + b, 0) / hl.length) * LOOP_GAP;
+      svg.appendChild(s('text', { x: cx, y: SHAFT_Y - 24, class: 'dg-label', 'text-anchor': 'middle' }, f.hlLabel));
+    }
 
     // 繞線
     if (f.yo) {
       const x = TIP_X + 22;
       svg.appendChild(s('ellipse', { cx: x, cy: SHAFT_Y, rx: 6, ry: 16, class: 'dg-yo' }));
-      svg.appendChild(s('path', { d: 'M' + x + ',' + (SHAFT_Y - 16) + ' Q' + (x + 30) + ',' + (SHAFT_Y - 50) + ' 150,22', class: 'dg-yarn' }));
-      svg.appendChild(s('text', { x: x - 4, y: SHAFT_Y - 26, class: 'dg-label', 'text-anchor': 'end' }, '繞線'));
+      svg.appendChild(s('path', { d: 'M' + x + ',' + (SHAFT_Y - 16) + ' Q' + (x + 30) + ',' + (SHAFT_Y - 46) + ' 160,16', class: 'dg-yarn' }));
+      svg.appendChild(s('text', { x: x - 6, y: SHAFT_Y - 22, class: 'dg-label', 'text-anchor': 'end' }, '繞線'));
     }
 
     // 插針
-    if (f.insert && !f.post) {
-      svg.appendChild(s('line', { x1: TIP_X + 4, y1: SHAFT_Y + 14, x2: TARGET_X - 4, y2: ROW_Y - 12, class: 'dg-arrow dash', 'marker-end': 'url(#' + id + ')' }));
-    }
+    if (f.insert != null) svg.appendChild(arrow(TIP_X + 4, SHAFT_Y + 14, tx(f.insert) - 4, ROW_Y - 12, true));
 
     // 拉出
-    if (f.pull) {
-      svg.appendChild(s('line', { x1: TARGET_X, y1: ROW_Y - 10, x2: LOOP_X0 - 4, y2: SHAFT_Y + 30, class: 'dg-arrow', 'marker-end': 'url(#' + id + ')' }));
-      svg.appendChild(s('text', { x: TARGET_X + 26, y: ROW_Y - 22, class: 'dg-label' }, '拉出來'));
+    if (f.pull != null) {
+      const x = tx(f.pull);
+      svg.appendChild(arrow(x, ROW_Y - 10, LOOP_X0 - 4, SHAFT_Y + 30));
+      svg.appendChild(s('text', { x: Math.max(x, LOOP_X0) + 22, y: ROW_Y - 30, class: 'dg-label' }, f.pullLabel || '拉出來'));
     }
 
     // 一次穿過幾個線圈
     if (f.through) {
       const x1 = LOOP_X0 + (f.through - 1) * LOOP_GAP + 10;
-      const x2 = TIP_X + 22;
-      const y = SHAFT_Y + 30;
+      const y = SHAFT_Y + 28;
       svg.appendChild(s('path', { d: 'M' + (LOOP_X0 - 10) + ',' + (y - 6) + ' V' + y + ' H' + x1 + ' V' + (y - 6), class: 'dg-bracket' }));
-      svg.appendChild(s('line', { x1: x1 + 4, y1: y + 14, x2: x2, y2: y + 14, class: 'dg-arrow', 'marker-end': 'url(#' + id + ')' }));
+      svg.appendChild(arrow(x1 + 4, y + 14, TIP_X + 22, y + 14));
       svg.appendChild(s('text', { x: x1 + 10, y: y + 19, class: 'dg-label' }, '一次穿過 ' + f.through + ' 圈'));
     }
 
-    // 左上角：針上幾個線圈
-    const n = f.loops;
-    svg.appendChild(s('rect', { x: 4, y: 4, width: 104, height: 28, rx: 14, class: 'dg-badge' }));
-    svg.appendChild(s('text', { x: 56, y: 23, class: 'dg-badge-t', 'text-anchor': 'middle' }, '針上 ' + n + ' 個線圈'));
+    // 右上角：針上幾個線圈
+    svg.appendChild(s('rect', { x: W - 112, y: 4, width: 108, height: 26, rx: 13, class: 'dg-badge' }));
+    svg.appendChild(s('text', { x: W - 58, y: 22, class: 'dg-badge-t', 'text-anchor': 'middle' }, '針上 ' + f.loops + ' 個線圈'));
     return svg;
   }
 
@@ -208,6 +322,7 @@
     if (/環形起針|魔術環|MR/.test(text)) add('MR');
     (step.tokens || []).forEach(t => add(t.k));
     if (/鎖針/.test(text)) add('CH');
+    if (/引拔/.test(text)) add('SL');
     return out;
   }
 
