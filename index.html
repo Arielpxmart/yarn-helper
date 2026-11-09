@@ -217,6 +217,42 @@
   .kb-code { flex-shrink: 0; min-width: 64px; font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 15px; }
   .kb-text { flex: 1; font-size: 15px; }
   .kb-text small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .kb-how { flex-shrink: 0; align-self: center; font-size: 13px; font-weight: 700; color: var(--primary); background: var(--primary-soft); border: none; border-radius: 99px; padding: 5px 10px; }
+  .howto-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .howto-chips button { font-size: 14px; font-weight: 700; color: var(--primary); background: var(--primary-soft); border: none; border-radius: 99px; padding: 6px 12px; }
+  .ht-sum { font-size: 15px; color: var(--muted); margin: -4px 0 12px; }
+  .ht-frame { background: var(--bg); border-radius: 16px; padding: 8px; touch-action: pan-y; }
+  .dg { width: 100%; height: auto; display: block; }
+  .dg-fabric { fill: none; stroke: var(--line); stroke-width: 3; }
+  .dg-target { fill: none; stroke: var(--accent); stroke-width: 4; }
+  .dg-new { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+  .dg-handle { fill: var(--primary); opacity: .55; }
+  .dg-shaft { stroke: var(--muted); stroke-width: 7; stroke-linecap: round; }
+  .dg-tip { fill: none; stroke: var(--muted); stroke-width: 5; stroke-linecap: round; }
+  .dg-loop { fill: none; stroke: var(--primary); stroke-width: 4; }
+  .dg-loop.hl, .dg-yo { fill: none; stroke: var(--accent); stroke-width: 4; }
+  .dg-yarn { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 2 5; stroke-linecap: round; }
+  .dg-arrow { stroke: var(--accent); stroke-width: 2.5; }
+  .dg-arrow.dash { stroke-dasharray: 6 5; }
+  .dg-acc-fill { fill: var(--accent); }
+  .dg-bracket { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .dg-label { fill: var(--text); font-size: 14px; font-weight: 700; }
+  .dg-small { fill: var(--accent); font-size: 13px; font-weight: 700; }
+  .dg-badge { fill: var(--primary); }
+  .dg-badge-t { fill: #fff; font-size: 13px; font-weight: 700; }
+  .ht-text { font-size: 18px; font-weight: 700; line-height: 1.5; min-height: 3em; margin: 12px 2px 8px; }
+  .ht-nav { display: flex; align-items: center; gap: 10px; }
+  .ht-nav .btn { flex: 1; }
+  .ht-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; }
+  .ht-dots i { width: 8px; height: 8px; border-radius: 99px; background: var(--line); }
+  .ht-dots i.on { background: var(--primary); width: 20px; }
+  .ht-steps { margin: 4px 0 0; padding-left: 1.4em; font-size: 16px; line-height: 1.6; }
+  .ht-steps li { margin-bottom: 6px; }
+  .ht-h { font-size: 15px; font-weight: 800; color: var(--primary); margin: 18px 0 8px; }
+  .ht-vid { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 8px; color: var(--text); text-decoration: none; }
+  .ht-vid .play { font-size: 22px; }
+  .ht-vid b { display: block; font-size: 15px; }
+  .ht-vid small { color: var(--muted); font-size: 13px; }
   .kb-note { background: var(--primary-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 14px; }
   .empty { text-align: center; padding: 40px 10px; }
   .empty .e-ico { font-size: 52px; }
@@ -226,6 +262,7 @@
 <div id="app"></div>
 <input type="file" id="fileInput" class="hidden">
 <script src="core.js"></script>
+<script src="howto.js"></script>
 <script>
 'use strict';
 const C = window.YarnCore;
@@ -521,12 +558,74 @@ function openGuide() {
   openSheet('📚 鉤針符號小知識', h('div', null,
     GUIDE.map(sec => [
       h('div', { class: 'kb-sec' }, sec.title),
-      sec.rows.map(r => h('div', { class: 'kb-row' },
-        h('span', { class: 'kb-code' }, r[0]),
-        h('span', { class: 'kb-text' }, r[1], r[2] ? h('small', null, r[2]) : null)))
+      sec.rows.map(r => {
+        const key = r[0].split('／')[0];
+        return h('div', { class: 'kb-row' },
+          h('span', { class: 'kb-code' }, r[0]),
+          h('span', { class: 'kb-text' }, r[1], r[2] ? h('small', null, r[2]) : null),
+          Howto.HOWTO[key] ? h('button', { class: 'kb-how', onclick: () => openHowto(key) }, '怎麼鉤 ›') : null);
+      })
     ]),
     h('div', { class: 'kb-note' },
       '📌 各作者的符號可能不同，請優先看該份圖解的說明。例如有的作者會把 EV 當成「長長針」本身，就要照原作者的定義。英文縮寫採美式用法。')));
+}
+
+/* ---------- 針法怎麼鉤 ---------- */
+function openHowto(key) {
+  const d = Howto.HOWTO[key];
+  if (!d) return;
+  const body = h('div');
+  body.appendChild(h('div', { class: 'ht-sum' }, d.summary));
+
+  if (d.steps) {
+    let i = 0;
+    const frame = h('div', { class: 'ht-frame' });
+    const text = h('div', { class: 'ht-text' });
+    const dots = h('div', { class: 'ht-dots' });
+    const prev = h('button', { class: 'btn', onclick: () => show(i - 1) }, '◀ 上一步');
+    const next = h('button', { class: 'btn btn-primary' }, '下一步 ▶');
+    function show(n) {
+      i = Math.max(0, Math.min(d.steps.length - 1, n));
+      frame.replaceChildren(Howto.drawFrame(d.steps[i]));
+      text.textContent = (i + 1) + '. ' + d.steps[i].text;
+      dots.replaceChildren(...d.steps.map((_, k) => h('i', { class: k === i ? 'on' : '' })));
+      prev.disabled = i === 0;
+      next.textContent = i === d.steps.length - 1 ? '從頭再看 ↺' : '下一步 ▶';
+      next.onclick = () => show(i === d.steps.length - 1 ? 0 : i + 1);
+    }
+    let sx = null;
+    frame.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    frame.addEventListener('touchend', e => {
+      if (sx == null) return;
+      const dx = e.changedTouches[0].clientX - sx; sx = null;
+      if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1));
+    });
+    show(0);
+    body.append(frame, dots, text, h('div', { class: 'ht-nav' }, prev, next));
+  } else if (d.textSteps) {
+    body.appendChild(h('ol', { class: 'ht-steps' }, d.textSteps.map(t => h('li', null, t))));
+  }
+  if (d.tip) body.appendChild(h('div', { class: 'tip' }, '💡 ' + d.tip));
+  if (d.see && d.see.length) {
+    body.appendChild(h('div', { class: 'howto-chips' }, '先學會：',
+      d.see.map(k => h('button', { onclick: () => openHowto(k) }, Howto.HOWTO[k].name + ' ›'))));
+  }
+  if (d.videos && d.videos.length) {
+    body.appendChild(h('div', { class: 'ht-h' }, '▶️ 看影片（需要網路）'));
+    d.videos.forEach(vk => {
+      const v = Howto.VIDEOS[vk];
+      body.appendChild(h('a', { class: 'ht-vid', href: Howto.videoUrl(vk), target: '_blank', rel: 'noopener' },
+        h('span', { class: 'play' }, '▶️'),
+        h('span', null, h('b', null, v.title), h('small', null, v.ch + '・' + v.len))));
+    });
+  }
+  openSheet((key.length <= 2 ? key + '｜' : '') + d.name + ' 怎麼鉤', body);
+}
+function howtoChips(step) {
+  const keys = Howto.keysForStep(step);
+  if (!keys.length) return null;
+  return h('div', { class: 'howto-chips' }, '不會鉤？',
+    keys.map(k => h('button', { onclick: () => openHowto(k) }, Howto.HOWTO[k].name)));
 }
 
 /* ---------- 首頁 ---------- */
@@ -733,6 +832,7 @@ function renderRowCard(part, steps, step, pp) {
     step.sub ? h('ol', { class: 'subs' }, step.sub.map((s, i) => h('li', null, h('span', { class: 'n' }, i + 1), h('span', null, s)))) : null,
     step.raw ? h('div', { class: 'raw' }, '原文：' + step.raw) : null,
     step.tip ? h('div', { class: 'tip' }, '💡 ' + step.tip) : null,
+    howtoChips(step),
     step.warnings.map(w => h('div', { class: 'warn' }, '⚠️ ' + w)));
 }
 
