@@ -68,11 +68,14 @@
       }
       return items;
     }
+    let depth = 0;
     function item() {
       const n = num();
       if (s[i] === '(') {
+        if (++depth > MAX_DEPTH) err('括號太多層');
         i++;
         const inner = list(')');
+        depth--;
         i++;
         let times = n;
         if (s[i] === '*') {
@@ -103,17 +106,26 @@
     }
 
     if (!s) throw new Error('沒有內容');
+    if (s.length > 2000) throw new Error('針法太長');
     const tree = list(null);
     return tree;
   }
 
+  // 一圈最多幾針：防止「99999(99999X)」這種寫法把手機記憶體吃光
+  const MAX_TOKENS = 3000;
+  const MAX_DEPTH = 20;
+
   // 展開成一針一按的清單
   function expand(tree, color) {
     const out = [];
+    function push(tk) {
+      if (out.length >= MAX_TOKENS) throw new Error('一圈超過 ' + MAX_TOKENS + ' 針，可能寫錯了');
+      out.push(tk);
+    }
     function walk(items, col) {
       items.forEach((it, idx) => {
         if (it.type === 'st') {
-          for (let k = 0; k < it.n; k++) out.push({ k: it.k, color: col || null, sep: k === 0 });
+          for (let k = 0; k < it.n; k++) push({ k: it.k, color: col || null, sep: k === 0 });
         } else if (it.type === 'group') {
           for (let t = 0; t < it.times; t++) {
             const start = out.length;
@@ -241,21 +253,71 @@
     return 0; // 0 = 自由計數
   }
 
+  /* ---------- 匯入檢查（檔案可能來自別人，一律當成不可信） ---------- */
+  const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+  // 不能用 __proto__、constructor、toString 這類 JavaScript 物件的保留名稱，否則會改到內部物件結構
+  const validId = id => typeof id === 'string' && ID_RE.test(id) && !(id in Object.prototype);
+  const IMG_RE = /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+  const LIMITS = { parts: 60, steps: 600, sub: 60, images: 12, list: 60, count: 50, text: 4000 };
+  const isStr = (v, max) => typeof v === 'string' && v.length <= (max || LIMITS.text);
+  const isStrOrNum = v => isStr(v) || (typeof v === 'number' && isFinite(v));
+  const strList = (v, max) => Array.isArray(v) && v.length <= (max || LIMITS.list) && v.every(x => isStr(x));
+
   function validatePattern(p) {
     const errors = [];
-    if (!p || typeof p !== 'object') return ['不是有效的織圖檔'];
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return ['不是有效的織圖檔'];
     if (p.format !== 'yarn-pattern/1') errors.push('格式欄位應為 yarn-pattern/1');
-    if (!p.id) errors.push('缺少 id');
-    if (!p.title) errors.push('缺少 title');
+    if (!validId(p.id)) errors.push('id 只能用英文、數字、- 和 _（最多 64 字）');
+    if (!isStr(p.title, 200) || !p.title) errors.push('缺少 title，或 title 太長');
+    ['craft', 'source'].forEach(k => { if (p[k] != null && !isStr(p[k])) errors.push(k + ' 格式不對'); });
+    ['materials', 'notes', 'legend'].forEach(k => { if (p[k] != null && !strList(p[k])) errors.push(k + ' 要是文字清單'); });
+    if (p.images != null) {
+      if (!Array.isArray(p.images) || p.images.length > LIMITS.images) errors.push('照片最多 ' + LIMITS.images + ' 張');
+      else p.images.forEach((im, i) => {
+        if (!im || !isStr(im.name, 100) || typeof im.data !== 'string' || !IMG_RE.test(im.data)) errors.push('第 ' + (i + 1) + ' 張照片格式不對（只接受內嵌的 JPEG／PNG／WebP／GIF）');
+      });
+    }
     if (!Array.isArray(p.parts) || !p.parts.length) errors.push('沒有任何部件');
-    else p.parts.forEach((part, i) => {
-      if (!part.id) errors.push('第 ' + (i + 1) + ' 個部件缺少 id');
-      if (!Array.isArray(part.steps)) errors.push('部件「' + (part.name || i) + '」沒有步驟');
-    });
+    else if (p.parts.length > LIMITS.parts) errors.push('部件太多');
+    else {
+      const seen = new Set();
+      p.parts.forEach((part, i) => {
+        const where = '第 ' + (i + 1) + ' 個部件';
+        if (!part || typeof part !== 'object') { errors.push(where + '格式不對'); return; }
+        if (!validId(part.id)) errors.push(where + '的 id 只能用英文、數字、- 和 _');
+        else if (seen.has(part.id)) errors.push(where + '的 id 重複');
+        else seen.add(part.id);
+        if (!isStr(part.name, 100)) errors.push(where + '缺少名稱');
+        ['unit', 'prefix', 'color'].forEach(k => { if (part[k] != null && !isStr(part[k], 40)) errors.push(where + '的 ' + k + ' 格式不對'); });
+        if (part.count != null && !(Number.isInteger(part.count) && part.count >= 1 && part.count <= LIMITS.count)) errors.push(where + '的數量要是 1～' + LIMITS.count);
+        if (!Array.isArray(part.steps) || part.steps.length > LIMITS.steps) { errors.push(where + '沒有步驟，或步驟太多'); return; }
+        part.steps.forEach((st, j) => {
+          const w = where + '第 ' + (j + 1) + ' 步';
+          if (!st || typeof st !== 'object' || Array.isArray(st)) { errors.push(w + '格式不對'); return; }
+          ['note', 'rows', 'raw', 'text', 'tip', 'label', 'color'].forEach(k => { if (st[k] != null && !isStrOrNum(st[k])) errors.push(w + '的 ' + k + ' 格式不對'); });
+          if (st.st != null && !(Number.isInteger(st.st) && st.st >= 0 && st.st <= MAX_TOKENS)) errors.push(w + '的針數不合理');
+          if (st.sub != null && !strList(st.sub, LIMITS.sub)) errors.push(w + '的 sub 要是文字清單');
+        });
+      });
+    }
     return errors;
   }
 
-  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, stepTotal, validatePattern, normalize };
+  // 備份裡的進度：只留下格式正確的欄位
+  function sanitizeProgress(pg) {
+    if (!pg || typeof pg !== 'object') return null;
+    const int = (v, max) => Number.isInteger(v) && v >= 0 && v <= max ? v : 0;
+    const out = { partIdx: int(pg.partIdx, LIMITS.parts), parts: {}, updated: int(pg.updated, 1e14) };
+    if (pg.parts && typeof pg.parts === 'object') {
+      for (const [pid, pp] of Object.entries(pg.parts)) {
+        if (!validId(pid) || !pp || typeof pp !== 'object') continue;
+        out.parts[pid] = { step: int(pp.step, LIMITS.steps * 200), copy: Math.max(1, int(pp.copy, LIMITS.count)), tap: 0, done: pp.done === true };
+      }
+    }
+    return out;
+  }
+
+  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, stepTotal, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.YarnCore = api;
 })(typeof self !== 'undefined' ? self : this);

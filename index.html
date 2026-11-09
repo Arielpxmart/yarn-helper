@@ -2,6 +2,8 @@
 <html lang="zh-TW" data-theme="sage">
 <head>
 <meta charset="UTF-8">
+<!-- 資安：只允許本站的程式與內嵌圖片，匯入的檔案就算夾帶外部網址也不會被載入 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -272,7 +274,7 @@
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v9', date: '2026-11-09' };
+const APP_VERSION = { no: 'v10', date: '2026-11-09' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -389,8 +391,9 @@ async function loadAll() {
   for (const k of keys) {
     const v = await DB.get(k);
     if (k === 'settings') Object.assign(state.settings, v || {});
-    else if (String(k).startsWith('proj:')) state.projects[v.id] = v;
-    else if (String(k).startsWith('prog:')) state.progress[String(k).slice(5)] = v;
+    // 讀回來也再檢查一次：萬一存進了壞資料，跳過它，App 還能正常打開
+    else if (String(k).startsWith('proj:')) { if (v && 'proj:' + v.id === k && !C.validatePattern(v).length) state.projects[v.id] = v; }
+    else if (String(k).startsWith('prog:')) { const id = String(k).slice(5); const clean = C.validId(id) && C.sanitizeProgress(v); if (clean) state.progress[id] = clean; }
   }
 }
 
@@ -453,19 +456,29 @@ async function importPattern(obj) {
   return true;
 }
 async function importBackup(obj) {
-  if (!confirm('要用這份備份還原嗎？\n備份裡有 ' + Object.keys(obj.projects || {}).length + ' 個作品，同名作品的織圖和進度會被備份覆蓋。')) return;
-  for (const [id, pr] of Object.entries(obj.projects || {})) {
-    if (C.validatePattern(pr).length) continue;
-    await DB.set('proj:' + id, pr); state.projects[id] = pr;
+  const projects = obj.projects && typeof obj.projects === 'object' ? Object.entries(obj.projects) : [];
+  const progress = obj.progress && typeof obj.progress === 'object' ? Object.entries(obj.progress) : [];
+  if (projects.length > 200) { alert('這份備份的作品數量不合理，不能還原。'); return; }
+  if (!confirm('要用這份備份還原嗎？\n備份裡有 ' + projects.length + ' 個作品，同名作品的織圖和進度會被備份覆蓋。')) return;
+  let ok = 0, skipped = 0;
+  for (const [id, pr] of projects) {
+    // 檔名（key）和作品 id 要一致，而且格式要通過檢查
+    if (!pr || pr.id !== id || C.validatePattern(pr).length) { skipped++; continue; }
+    await DB.set('proj:' + id, pr); state.projects[id] = pr; ok++;
   }
-  for (const [id, pg] of Object.entries(obj.progress || {})) {
-    await DB.set('prog:' + id, pg); state.progress[id] = pg;
+  for (const [id, pg] of progress) {
+    if (!C.validId(id) || !Object.hasOwn(state.projects, id)) continue;
+    const clean = C.sanitizeProgress(pg);
+    if (!clean) continue;
+    await DB.set('prog:' + id, clean); state.progress[id] = clean;
   }
   flatCache.clear();
-  toast('已還原備份');
+  toast('已還原 ' + ok + ' 個作品' + (skipped ? '（' + skipped + ' 個格式不對，已略過）' : ''));
   render();
 }
+const MAX_IMPORT_MB = 25;
 async function handleJsonText(text) {
+  if (text.length > MAX_IMPORT_MB * 1024 * 1024) { alert('檔案太大（超過 ' + MAX_IMPORT_MB + ' MB），不能匯入。'); return; }
   let obj;
   try { obj = JSON.parse(text); } catch (e) { alert('讀不懂這個檔案，請確認是我產出的 .json 織圖檔。'); return; }
   if (obj && obj.format === 'yarn-backup/1') return importBackup(obj);
@@ -476,6 +489,7 @@ fileInput.addEventListener('change', () => {
   const f = fileInput.files[0];
   fileInput.value = '';
   if (!f) return;
+  if (f.size > MAX_IMPORT_MB * 1024 * 1024) { alert('檔案太大（超過 ' + MAX_IMPORT_MB + ' MB），不能匯入。'); return; }
   const r = new FileReader();
   r.onload = () => handleJsonText(String(r.result));
   r.readAsText(f);
