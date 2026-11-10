@@ -58,6 +58,7 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
   .btn { border-radius: 14px; padding: 11px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--card); }
   .btn:active { background: var(--primary-soft); }
+  .btn:disabled { opacity: .45; pointer-events: none; }
   .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
   .btn-primary:active { background: var(--primary-press); }
   .btn-danger { color: #c0392b; }
@@ -274,7 +275,7 @@
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v10', date: '2026-11-09' };
+const APP_VERSION = { no: 'v11', date: '2026-11-10' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -340,7 +341,7 @@ const DB = (() => {
 const state = {
   projects: {},      // id -> pattern
   progress: {},      // id -> { partIdx, parts: { partId: { copy, step, tap, done } }, updated }
-  settings: { theme: 'sage', sound: true, wake: false }
+  settings: { theme: 'sage', sound: true, wake: false, craft: 'crochet' }
 };
 let view = { name: 'home', id: null };
 const flatCache = new Map();
@@ -428,6 +429,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 /* ---------- 匯入 ---------- */
 async function importPattern(obj) {
+  if (obj && obj.craft === 'knit') { alert('這是棒針織圖，棒針功能準備中，還不能匯入。\n目前只能匯入鉤針織圖。'); return false; }
   const errs = C.validatePattern(obj);
   if (errs.length) { alert('這個檔案不能匯入：\n' + errs.join('\n')); return false; }
   const exists = !!state.projects[obj.id];
@@ -654,8 +656,14 @@ function howtoChips(step) {
 /* ---------- 首頁 ---------- */
 function renderHome() {
   document.body.className = 'home-page';
-  const list = Object.values(state.projects).sort((a, b) =>
+  const craft = state.settings.craft === 'knit' ? 'knit' : 'crochet';
+  const isKnit = craft === 'knit';
+  const craftOf = p => (p.craft === 'knit' ? 'knit' : 'crochet'); // 舊作品沒有 craft 欄位，一律當鉤針
+  const all = Object.values(state.projects);
+  const count = { crochet: all.filter(p => craftOf(p) === 'crochet').length, knit: all.filter(p => craftOf(p) === 'knit').length };
+  const list = all.filter(p => craftOf(p) === craft).sort((a, b) =>
     ((state.progress[b.id] || {}).updated || 0) - ((state.progress[a.id] || {}).updated || 0));
+  const setCraft = c => { state.settings.craft = c; saveSettings(); renderHome(); };
 
   const items = list.map(p => {
     const pct = projectPercent(p);
@@ -674,13 +682,21 @@ function renderHome() {
       h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
       h('button', { class: 'icon-btn', onclick: openHomeMenu, 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'wrap stack' },
-      items.length ? items : h('div', { class: 'empty' },
-        h('div', { class: 'e-ico' }, '🧶'),
-        h('p', null, '還沒有作品'),
-        h('p', { class: 'small muted' }, '把 Claude 轉好的織圖檔（.json）傳到手機，再按下面的「匯入織圖」。')),
+      h('div', { class: 'seg', role: 'tablist' },
+        h('button', { class: craft === 'crochet' ? 'on' : '', role: 'tab', 'aria-selected': String(craft === 'crochet'), onclick: () => setCraft('crochet') }, '🧶 鉤針（' + count.crochet + '）'),
+        h('button', { class: isKnit ? 'on' : '', role: 'tab', 'aria-selected': String(isKnit), onclick: () => setCraft('knit') }, '🧣 棒針（' + count.knit + '）')),
+      items.length ? items : (isKnit
+        ? h('div', { class: 'empty' },
+          h('div', { class: 'e-ico' }, '🧣'),
+          h('p', null, '棒針功能準備中'),
+          h('p', { class: 'small muted' }, '目前只能匯入鉤針織圖，棒針織圖之後會支援。'))
+        : h('div', { class: 'empty' },
+          h('div', { class: 'e-ico' }, '🧶'),
+          h('p', null, '還沒有作品'),
+          h('p', { class: 'small muted' }, '把 Claude 轉好的織圖檔（.json）傳到手機，再按下面的「匯入鉤針織圖」。'))),
       h('div', { class: 'row-flex', style: 'gap:10px' },
-        h('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => fileInput.click() }, '📥 匯入織圖'),
-        h('button', { class: 'btn', onclick: openPaste }, '貼上'))));
+        h('button', { class: 'btn btn-primary', style: 'flex:1', disabled: isKnit, onclick: () => fileInput.click() }, isKnit ? '📥 匯入棒針織圖' : '📥 匯入鉤針織圖'),
+        h('button', { class: 'btn', disabled: isKnit, onclick: openPaste }, '貼上'))));
 }
 function openPaste() {
   const ta = h('textarea', { class: 'paste', placeholder: '把織圖檔的內容整段貼在這裡' });
