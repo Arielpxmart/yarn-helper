@@ -273,6 +273,9 @@
   .dg-small { fill: var(--accent); font-size: 13px; font-weight: 700; }
   .dg-badge { fill: var(--primary); }
   .dg-badge-t { fill: #fff; font-size: 13px; font-weight: 700; }
+  .ht-table { width: 100%; border-collapse: collapse; margin: 12px 0 0; font-size: 15px; }
+  .ht-table td { border: 1px solid var(--line); padding: 7px 12px; }
+  .ht-table td:first-child { font-weight: 700; width: 45%; background: var(--primary-soft); }
   .ht-text { font-size: 18px; font-weight: 700; line-height: 1.5; min-height: 3em; margin: 12px 2px 8px; }
   .ht-nav { display: flex; align-items: center; gap: 10px; }
   .ht-nav .btn { flex: 1; }
@@ -304,7 +307,7 @@
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v12', date: '2026-11-11' };
+const APP_VERSION = { no: 'v13', date: '2026-11-11' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -579,7 +582,8 @@ const GUIDE = [
     ['SL／sl st', '引拔針'],
     ['T／hdc', '中長針'],
     ['F／dc', '長針'],
-    ['E／tr', '長長針']
+    ['E／tr', '長長針'],
+    ['半短針', '不是標準針法', '多半指中長針（T）；若寫「半針」，指的是只挑半個 V（見下方 FLO／BLO）']
   ] },
   { title: '🌼 加針｜鉤在同一個針目', rows: [
     ['V', '同一針目鉤 2 短針'],
@@ -594,9 +598,10 @@ const GUIDE = [
   { title: '🌼 起針與挑針方式', rows: [
     ['MR', '環形起針（魔術環）'],
     ['K3', '跳過 3 針不鉤', '常和鎖針一起用，鉤出洞洞，例如貓耳朵'],
-    ['BLO', '後半針／內半針', '只挑針目後側（離自己遠）的半個 V 鉤'],
-    ['FLO', '前半針／外半針', '只挑針目前側（離自己近）的半個 V 鉤'],
-    ['起立針', '用鎖針墊高，方便開始新的一行或一圈', '短針起立 1 鎖針，通常不算一針']
+    ['裡山', '鎖針背面的一排小凸起', '從鎖針起針時挑它，起針邊比較整齊', 'BUMP'],
+    ['BLO', '後半針／內半針', '只挑針目後側（離自己遠）的半個 V 鉤。有些作者的「內半針」定義相反，以原作者為準', 'LOOP'],
+    ['FLO', '前半針／外半針', '只挑針目前側（離自己近）的半個 V 鉤，沒鉤的線會留成一排小脊', 'LOOP'],
+    ['起立針', '用鎖針墊高，方便開始新的一行或一圈', '常見：短針 1、中長針 2、長針 3、長長針 4 個鎖針；算不算一針依作者而定', 'TURN']
   ] },
   { title: '📖 圖解怎麼看', rows: [
     ['R1、R2', '第 1 圈、第 2 圈', '片鉤時也可能指行數；中文圖解片鉤常寫 H1、H2'],
@@ -617,7 +622,7 @@ function openGuide() {
     GUIDE.map(sec => [
       h('div', { class: 'kb-sec' }, sec.title),
       sec.rows.map(r => {
-        const key = r[0].split('／')[0];
+        const key = r[3] || r[0].split('／')[0];
         return h('div', { class: 'kb-row' },
           h('span', { class: 'kb-code' }, r[0]),
           h('span', { class: 'kb-text' }, r[1], r[2] ? h('small', null, r[2]) : null),
@@ -662,6 +667,9 @@ function openHowto(key) {
     body.append(frame, dots, text, h('div', { class: 'ht-nav' }, prev, next));
   } else if (d.textSteps) {
     body.appendChild(h('ol', { class: 'ht-steps' }, d.textSteps.map(t => h('li', null, t))));
+  }
+  if (d.table) {
+    body.appendChild(h('table', { class: 'ht-table' }, d.table.map(r => h('tr', null, h('td', null, r[0]), h('td', null, r[1])))));
   }
   if (d.tip) body.appendChild(h('div', { class: 'tip' }, '💡 ' + d.tip));
   if (d.see && d.see.length) {

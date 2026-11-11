@@ -80,7 +80,7 @@
     },
     T: {
       name: '中長針',
-      summary: '大約 2 個鎖針高，介於短針和長針之間。',
+      summary: '大約 2 個鎖針高，介於短針和長針之間，有人稱為半長針（英文 hdc）。沒有「半短針」這種標準針法。',
       steps: [
         { loops: 1, yo: true, text: '先繞線 1 次（插針前就繞）。' },
         { loops: 2, insert: 0, yo: true, text: '針上 2 個線圈。插進下一針，再繞線。' },
@@ -119,6 +119,40 @@
       ],
       tip: '口訣：先繞線 2 次，分三次各穿過 2 圈。',
       videos: ['basics', 'basics_slip']
+    },
+    BUMP: {
+      name: '裡山（鎖針背面）',
+      summary: '鎖針翻到背面，中間有一排小小的凸起，就是「裡山」。從鎖針起針時挑它，起針邊會比較整齊。',
+      steps: [
+        { draw: 'chainFront', text: '鎖針正面是一串 V 字。' },
+        { draw: 'chainBack', hi: 2, text: '把鎖針翻到背面，會看到一排小小的凸起，這就是裡山。' },
+        { draw: 'chainInsert', hi: 2, text: '圖解寫「挑裡山」時，針從背面這個小山的位置插進去，再照圖解鉤（例如短針）。' }
+      ],
+      tip: '只有圖解寫「挑裡山」才這樣挑；沒寫的時候，照該圖解的說明或平常的挑法即可。',
+      see: ['CH']
+    },
+    LOOP: {
+      name: '前半針與後半針（外半針、內半針）',
+      summary: '針目頂端是一個 V 字，由 2 條線組成。只挑其中 1 條來鉤，叫「挑半針」，沒鉤的另一條會留成一排小脊。',
+      steps: [
+        { draw: 'loop', mode: 'both', text: '針目頂端有 2 條線：離你近的叫前半針（外半針），離你遠的叫後半針（內半針）。一般鉤法是 2 條一起挑。' },
+        { draw: 'loop', mode: 'front', text: '只挑前半針（外半針，標 FLO）：針只插進離你近的那條線，後面那條留著。' },
+        { draw: 'loop', mode: 'back', text: '只挑後半針（內半針，標 BLO）：針插進離你遠的那條線，前面那條留著。' },
+        { draw: 'loop', mode: 'ridge', text: '沒鉤的那一條會留成一排小脊，之後可以在上面鉤花邊、羊毛或另一片。' }
+      ],
+      tip: '注意：有些作者把「內半針」當成前半針，剛好相反。原文有附說明時，以原作者為準。',
+      see: ['X']
+    },
+    TURN: {
+      name: '起立針',
+      summary: '開始新的一排或一圈時，先鉤幾個鎖針把高度墊起來，這幾個鎖針叫起立針。',
+      steps: [
+        { loops: 1, chain: 3, chainNew: true, text: '先鉤幾個鎖針，把高度墊起來，再鉤這一排的第 1 針。' },
+        { draw: 'turn', text: '針法越高，起立的鎖針越多。圖上是各針法的高度，旁邊的鎖針堆就是它常用的起立針數。' }
+      ],
+      table: [['短針', '1 鎖針'], ['中長針', '2 鎖針'], ['長針', '3 鎖針'], ['長長針', '4 鎖針']],
+      tip: '起立針算不算一針，各作者不同（短針的起立針通常不算一針）。以該份圖解的說明為準。',
+      see: ['CH']
     },
     V: {
       name: '短針加針',
@@ -211,7 +245,87 @@
   const TARGET_NAMES = { 0: '下一針', '-1': '再下一針', '-2': '第 3 針' };
   const tx = i => TARGET_X + i * STITCH_GAP;
 
+  // 不屬於「針上線圈」模式的示意圖：裡山、半針、起立針
+  function drawCustom(f) {
+    const id = 'ah' + (++uid);
+    const svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'dg', role: 'img' });
+    svg.appendChild(s('defs', null,
+      s('marker', { id, viewBox: '0 0 10 10', refX: 7, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' },
+        s('path', { d: 'M0,0 L10,5 L0,10 z', class: 'dg-acc-fill' }))));
+    const arrow = (x1, y1, x2, y2) => s('line', { x1, y1, x2, y2, class: 'dg-arrow dash', 'marker-end': 'url(#' + id + ')' });
+    const text = (x, y, t, cls, anchor) => s('text', { x, y, class: cls || 'dg-label', 'text-anchor': anchor || 'middle' }, t);
+    const tag = t => [
+      s('rect', { x: 4, y: 4, width: 14 * t.length + 18, height: 26, rx: 13, class: 'dg-badge' }),
+      s('text', { x: 4 + (14 * t.length + 18) / 2, y: 22, class: 'dg-badge-t', 'text-anchor': 'middle' }, t)];
+    const xs = [60, 110, 160, 210, 260];
+
+    if (f.draw === 'chainFront') {
+      svg.append(...tag('正面'));
+      xs.forEach(x => svg.appendChild(s('ellipse', { cx: x, cy: 100, rx: 27, ry: 13, class: 'dg-old' })));
+      svg.appendChild(text(160, 150, '一串 V 字'));
+    } else if (f.draw === 'chainBack' || f.draw === 'chainInsert') {
+      svg.append(...tag('背面'));
+      svg.appendChild(s('line', { x1: 30, y1: 104, x2: 290, y2: 104, class: 'dg-fabric' }));
+      xs.forEach((x, i) => svg.appendChild(s('ellipse', { cx: x, cy: 100, rx: 11, ry: 9, class: i === f.hi ? 'dg-new' : 'dg-old' })));
+      if (f.draw === 'chainBack') {
+        svg.appendChild(text(160, 150, '一排小小的山 = 裡山'));
+      } else {
+        svg.appendChild(arrow(250, 36, xs[f.hi] + 6, 88));
+        svg.appendChild(text(160, 150, '針從裡山插進去'));
+      }
+    } else if (f.draw === 'loop') {
+      const mode = f.mode;
+      if (mode === 'ridge') {
+        [70, 160, 250].forEach(x => {
+          svg.appendChild(s('ellipse', { cx: x, cy: 88, rx: 34, ry: 9, class: 'dg-old' }));
+          svg.appendChild(s('ellipse', { cx: x, cy: 112, rx: 34, ry: 9, class: 'dg-new' }));
+        });
+        svg.appendChild(text(160, 150, '沒鉤的那條線 = 一排小脊'));
+        svg.appendChild(text(160, 172, '（橘色是沒鉤的前半針）', 'dg-small'));
+      } else {
+        const frontCls = mode === 'back' ? 'dg-fabric' : mode === 'front' ? 'dg-new' : 'dg-old';
+        const backCls = mode === 'front' ? 'dg-fabric' : mode === 'back' ? 'dg-new' : 'dg-old';
+        svg.appendChild(s('ellipse', { cx: 160, cy: 78, rx: 62, ry: 14, class: backCls }));
+        svg.appendChild(s('ellipse', { cx: 160, cy: 112, rx: 62, ry: 14, class: frontCls }));
+        svg.appendChild(text(22, 80, '後半針', null, 'start'));
+        svg.appendChild(text(22, 96, '（內半針）', 'dg-small', 'start'));
+        svg.appendChild(text(22, 116, '前半針', null, 'start'));
+        svg.appendChild(text(22, 132, '（外半針）', 'dg-small', 'start'));
+        svg.appendChild(text(160, 36, '離你遠', 'dg-small'));
+        svg.appendChild(text(160, 160, '離你近', 'dg-small'));
+        if (mode === 'front') svg.appendChild(arrow(262, 172, 214, 124));
+        if (mode === 'back') svg.appendChild(arrow(280, 150, 218, 84));
+        if (mode === 'both') svg.appendChild(arrow(268, 126, 224, 96));
+        svg.appendChild(text(160, 190, mode === 'both' ? '2 條線一起挑' : mode === 'front' ? '只挑前半針（FLO）' : '只挑後半針（BLO）'));
+      }
+    } else if (f.draw === 'turn') {
+      const cols = [
+        { x: 50, h: 'short', n: 1, name: '短針' }, { x: 125, h: 'mid', n: 2, name: '中長針' },
+        { x: 200, h: 'tall', n: 3, name: '長針' }, { x: 275, h: 'xtall', n: 4, name: '長長針' }];
+      const base = 140;
+      cols.forEach(c => {
+        const hgt = POST_H[c.h];
+        const top = base - hgt;
+        svg.appendChild(s('line', { x1: c.x + 14, y1: base, x2: c.x + 14, y2: top + 5, class: 'dg-old' }));
+        for (let k = 1; k <= (SLASHES[c.h] || 0); k++) {
+          const my = base - (hgt * k) / ((SLASHES[c.h] || 0) + 1);
+          svg.appendChild(s('line', { x1: c.x + 6, y1: my + 4, x2: c.x + 22, y2: my - 4, class: 'dg-old' }));
+        }
+        svg.appendChild(s('ellipse', { cx: c.x + 14, cy: top, rx: 12, ry: 4, class: 'dg-old' }));
+        const gap = hgt / c.n;
+        for (let k = 0; k < c.n; k++) {
+          svg.appendChild(s('ellipse', { cx: c.x - 12, cy: base - gap * (k + 0.5), rx: 9, ry: Math.min(7, gap / 2 - 1), class: 'dg-new' }));
+        }
+        svg.appendChild(s('line', { x1: c.x - 26, y1: base + 4, x2: c.x + 30, y2: base + 4, class: 'dg-fabric' }));
+        svg.appendChild(text(c.x + 2, 164, c.name));
+        svg.appendChild(text(c.x + 2, 184, c.n + ' 鎖針', 'dg-small'));
+      });
+    }
+    return svg;
+  }
+
   function drawFrame(f) {
+    if (f.draw) return drawCustom(f);
     const id = 'ah' + (++uid);
     const svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'dg', role: 'img' });
     svg.appendChild(s('defs', null,
@@ -322,6 +436,9 @@
     if (/環形起針|魔術環|MR/.test(text)) add('MR');
     (step.tokens || []).forEach(t => add(t.k));
     if (/鎖針/.test(text)) add('CH');
+    if (/裡山/.test(text)) add('BUMP');
+    if (/內半針|外半針|前半針|後半針/.test(text)) add('LOOP');
+    if (/起立針/.test(text)) add('TURN');
     if (/引拔/.test(text)) add('SL');
     return out;
   }
