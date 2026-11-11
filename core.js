@@ -165,6 +165,26 @@
     return segs;
   }
 
+  // 新手模式用：整圈只有一個重複組（例如 6(5X, V)），組內有 2 種以上針法、且含加減針時，回傳每組內容；其餘回傳 null
+  // 整圈只有一種針法（全短針、全減針）、組內含顏色區段或巢狀括號，都不算（不需要輔助）
+  function analyzeCycle(tree) {
+    if (!tree || tree.length !== 1 || tree[0].type !== 'group') return null;
+    const g = tree[0];
+    if (g.times < 2 || !g.items.length || g.items.some(it => it.type !== 'st')) return null;
+    const unit = [];
+    let produced = 0, consumed = 0, changes = false;
+    g.items.forEach(it => {
+      const d = STITCHES[it.k];
+      const last = unit[unit.length - 1];
+      if (last && last.k === it.k) last.n += it.n; else unit.push({ k: it.k, n: it.n });
+      produced += d.p * it.n; consumed += d.c * it.n;
+      if (d.c !== d.p) changes = true;
+    });
+    const kinds = new Set(unit.map(u => u.k));
+    if (kinds.size < 2 || !changes) return null;
+    return { times: g.times, unit, produced, consumed };
+  }
+
   function countTokens(tokens) {
     let c = 0, p = 0;
     tokens.forEach(tk => { c += STITCHES[tk.k].c; p += STITCHES[tk.k].p; });
@@ -207,6 +227,7 @@
           st: typeof src.st === 'number' ? src.st : null,
           tokens: null,
           segments: null,
+          cycle: null,
           consumed: null,
           warnings: [],
           colorChange: false,
@@ -219,6 +240,7 @@
             const tree = parseRaw(step.raw);
             step.tokens = expand(tree, null);
             step.segments = toSegments(tree);
+            step.cycle = analyzeCycle(tree);
             const cnt = countTokens(step.tokens);
             step.consumed = cnt.consumed;
             if (step.st != null && step.st !== cnt.produced) {
@@ -317,7 +339,7 @@
     return out;
   }
 
-  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, stepTotal, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
+  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, analyzeCycle, stepTotal, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.YarnCore = api;
 })(typeof self !== 'undefined' ? self : this);
