@@ -72,6 +72,10 @@
   .proj-thumb { width: 56px; height: 56px; border-radius: 14px; background: var(--primary-soft); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 26px; }
   .proj-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .proj-info { flex: 1; min-width: 0; }
+  .sec-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 6px 2px -4px; }
+  .move-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .move-btns .icon-btn { background: var(--primary-soft); height: 34px; min-width: 44px; }
+  .move-btns .icon-btn:disabled { opacity: .3; }
   .proj-title { font-weight: 700; font-size: 17px; }
   .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 6px; }
   .bar > div { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
@@ -307,7 +311,7 @@
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v13', date: '2026-11-11' };
+const APP_VERSION = { no: 'v14', date: '2026-11-11' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -415,12 +419,55 @@ function projectPercent(project) {
 const saveTimers = {};
 function saveProgress(id) {
   prog(id).updated = Date.now();
+  promoteIfStarted(id);
   clearTimeout(saveTimers[id]);
   const snapshot = JSON.parse(JSON.stringify(state.progress[id]));
   saveTimers[id] = setTimeout(() => {
     DB.set('prog:' + id, snapshot).catch(() => toast('⚠️ 進度沒有存起來，手機空間可能不足'));
   }, 150);
 }
+/* ---------- 首頁排序：進行中／備用兩塊，順序手動固定 ---------- */
+const craftOf = p => (p.craft === 'knit' ? 'knit' : 'crochet'); // 舊作品沒有 craft 欄位，一律當鉤針
+function homeOrder(craft) {
+  const all = state.settings.order && typeof state.settings.order === 'object' ? state.settings.order : (state.settings.order = {});
+  const o = all[craft] && typeof all[craft] === 'object' ? all[craft] : (all[craft] = {});
+  return { o, mine: Object.values(state.projects).filter(p => craftOf(p) === craft) };
+}
+// 取得兩塊的 id 順序；清掉已刪除的、把還沒排過的作品補進去（有進度 → 進行中，沒進度 → 備用，新匯入的接在最後）
+function homeSections(craft) {
+  const { o, mine } = homeOrder(craft);
+  const before = JSON.stringify([o.act, o.que]);
+  const ids = new Set(mine.map(p => p.id)), seen = new Set();
+  const keep = arr => (Array.isArray(arr) ? arr : []).filter(id => ids.has(id) && !seen.has(id) && seen.add(id));
+  const act = keep(o.act), que = keep(o.que);
+  const fresh = mine.filter(p => !seen.has(p.id));
+  act.push(...fresh.filter(p => projectPercent(p) > 0)
+    .sort((a, b) => ((state.progress[b.id] || {}).updated || 0) - ((state.progress[a.id] || {}).updated || 0)).map(p => p.id));
+  que.push(...fresh.filter(p => projectPercent(p) <= 0).map(p => p.id));
+  o.act = act; o.que = que;
+  if (JSON.stringify([o.act, o.que]) !== before) saveSettings();
+  return o;
+}
+// 備用的作品第一次織出進度 → 自動跳到進行中的最下面
+function promoteIfStarted(id) {
+  const proj = state.projects[id];
+  if (!proj) return;
+  const o = homeSections(craftOf(proj));
+  if (!o.que.includes(id) || projectPercent(proj) <= 0) return;
+  o.que = o.que.filter(x => x !== id); o.act.push(id); saveSettings();
+}
+// 上移／下移一格；進行中的第一個上不去、備用的最後一個下不去；備用最前面上移會進到進行中最後面，反之亦然
+function moveProject(craft, id, dir) {
+  const o = homeSections(craft);
+  const inAct = o.act.includes(id);
+  const arr = inAct ? o.act : o.que, i = arr.indexOf(id), j = i + dir;
+  if (j >= 0 && j < arr.length) { [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  else if (inAct && dir > 0) { arr.splice(i, 1); o.que.unshift(id); }
+  else if (!inAct && dir < 0) { arr.splice(i, 1); o.act.push(id); }
+  else return;
+  saveSettings(); renderHome();
+}
+let sorting = false;
 function saveSettings() { DB.set('settings', state.settings).catch(() => {}); }
 
 async function loadAll() {
@@ -510,6 +557,12 @@ async function importBackup(obj) {
     if (!clean) continue;
     await DB.set('prog:' + id, clean); state.progress[id] = clean;
   }
+  if (obj.order && typeof obj.order === 'object') {
+    const ids = a => (Array.isArray(a) ? a.filter(x => typeof x === 'string' && C.validId(x)) : []);
+    state.settings.order = {};
+    for (const c of ['crochet', 'knit']) { const o = obj.order[c] || {}; state.settings.order[c] = { act: ids(o.act), que: ids(o.que) }; }
+    saveSettings();
+  }
   flatCache.clear();
   toast('已還原 ' + ok + ' 個作品' + (skipped ? '（' + skipped + ' 個格式不對，已略過）' : ''));
   render();
@@ -534,7 +587,7 @@ fileInput.addEventListener('change', () => {
 });
 
 function exportBackup() {
-  const data = { format: 'yarn-backup/1', exported: new Date().toISOString(), projects: state.projects, progress: state.progress };
+  const data = { format: 'yarn-backup/1', exported: new Date().toISOString(), projects: state.projects, progress: state.progress, order: state.settings.order || {} };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const d = new Date();
   const name = '毛線小幫手備份_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.json';
@@ -699,27 +752,36 @@ function renderHome() {
   document.body.className = 'home-page';
   const craft = state.settings.craft === 'knit' ? 'knit' : 'crochet';
   const isKnit = craft === 'knit';
-  const craftOf = p => (p.craft === 'knit' ? 'knit' : 'crochet'); // 舊作品沒有 craft 欄位，一律當鉤針
   const all = Object.values(state.projects);
   const count = { crochet: all.filter(p => craftOf(p) === 'crochet').length, knit: all.filter(p => craftOf(p) === 'knit').length };
-  const list = all.filter(p => craftOf(p) === craft).sort((a, b) =>
-    ((state.progress[b.id] || {}).updated || 0) - ((state.progress[a.id] || {}).updated || 0));
+  const sec = homeSections(craft);
+  const byId = id => state.projects[id];
   const setCraft = c => { state.settings.craft = c; saveSettings(); renderHome(); };
+  const ordered = sec.act.concat(sec.que);
 
-  const items = list.map(p => {
+  const card = p => {
     const pct = projectPercent(p);
     const thumb = (p.images || [])[0];
-    return h('button', { class: 'card proj', onclick: () => go('project', p.id) },
+    const body = [
       h('div', { class: 'proj-thumb' }, thumb ? h('img', { src: thumb.data, alt: '' }) : (p.craft === 'knit' ? '🧣' : '🧶')),
       h('div', { class: 'proj-info' },
         h('div', { class: 'proj-title' }, p.title),
         h('div', { class: 'small muted' }, (p.craft === 'knit' ? '棒針' : '鉤針') + '・' + p.parts.length + ' 個部件・' + pct + '%'),
-        h('div', { class: 'bar' }, h('div', { style: 'width:' + pct + '%' }))));
-  });
+        h('div', { class: 'bar' }, h('div', { style: 'width:' + pct + '%' })))];
+    if (!sorting) return h('button', { class: 'card proj', onclick: () => go('project', p.id) }, ...body);
+    const pos = ordered.indexOf(p.id);
+    return h('div', { class: 'card proj' }, ...body,
+      h('div', { class: 'move-btns' },
+        h('button', { class: 'icon-btn', 'aria-label': '上移', disabled: pos === 0, onclick: () => moveProject(craft, p.id, -1) }, '▲'),
+        h('button', { class: 'icon-btn', 'aria-label': '下移', disabled: pos === ordered.length - 1, onclick: () => moveProject(craft, p.id, 1) }, '▼')));
+  };
+  const section = (title, ids) => ids.length ? [h('div', { class: 'sec-title' }, title + '（' + ids.length + '）'), ...ids.map(id => card(byId(id)))] : [];
+  const items = section('進行中', sec.act).concat(section('還沒開始動工', sec.que));
 
   $app.replaceChildren(
     h('div', { class: 'topbar' },
       h('h1', null, '🧶 毛線小幫手'),
+      h('button', { class: 'icon-btn', style: 'font-size:14px;font-weight:700', onclick: () => { sorting = !sorting; renderHome(); }, 'aria-label': '調整順序' }, sorting ? '完成' : '↕ 排序'),
       h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
       h('button', { class: 'icon-btn', onclick: openHomeMenu, 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'wrap stack' },
