@@ -148,7 +148,21 @@
   .sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
   .sheet { background: var(--card); width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); }
   .sheet-handle { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 6px auto 10px; }
-  .sheet h2 { font-size: 18px; margin: 4px 0 12px; }
+  .sheet h2 { font-size: 18px; margin: 4px 0 12px; flex: 1; }
+  .sheet-top { position: sticky; top: -8px; z-index: 2; background: var(--card); display: flex; align-items: flex-start; gap: 8px; }
+  .sheet-x { flex: none; width: 44px; height: 44px; margin-left: auto; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; line-height: 1; }
+  .stls { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+  .stls.sm { flex-direction: row; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 0; }
+  .stl { display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; color: inherit; background: var(--primary-soft); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; }
+  button.stl { min-height: 44px; }
+  .stl b { min-width: 1.6em; }
+  .stl .stl-go { margin-left: auto; opacity: .55; font-size: 18px; }
+  .stl.sm { gap: 4px; padding: 2px 7px; border-radius: 8px; font-size: 13px; }
+  .stl .sym { flex: none; }
+  .why { margin: 6px 0 2px; font-weight: 600; }
+  .fp-why, .fp-how { display: block; font-size: 13px; opacity: .85; margin-top: 3px; }
+  .start-head { font-size: 22px; font-weight: 700; margin: 2px 0 6px; }
+  .sheet-close { display: block; width: 100%; margin-top: 16px; min-height: 52px; font-size: 17px; }
   .menu-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: 16px; }
   .menu-item:last-child { border-bottom: none; }
   .menu-item .mi-ico { width: 28px; text-align: center; font-size: 19px; }
@@ -217,6 +231,12 @@
   .dock-grid2 .tap { font-size: 24px; height: 84px; }
   .tap-two { display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.2; }
   .tap-sub { font-size: 14px; font-weight: 700; opacity: .92; }
+  .tap-two.cyc { font-size: 22px; }
+  .tap-two.cyc .tap-sub { font-size: 17px; }
+  .dock-cy { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .dock-cy-top { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .dock-cy-top .cy-dots { flex: 1; }
+  .dock-cy-unit { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 14px; }
   /* 連續多圈相同的提醒（用邊框強調，不用顏色，避免跟「換色」混淆） */
   .rep { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
   .rep-badge { font-size: 14px; font-weight: 800; color: var(--primary); background: var(--primary-soft); border: 2px solid var(--primary); border-radius: 99px; padding: 3px 12px; }
@@ -307,11 +327,12 @@
 <input type="file" id="fileInput" class="hidden">
 <script src="core.js"></script>
 <script src="howto.js"></script>
+<script src="symbols.js"></script>
 <script>
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v14', date: '2026-11-11' };
+const APP_VERSION = { no: 'v15', date: '2026-11-15' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -516,6 +537,7 @@ async function importPattern(obj) {
   const errs = C.validatePattern(obj);
   if (errs.length) { alert('這個檔案不能匯入：\n' + errs.join('\n')); return false; }
   const exists = !!state.projects[obj.id];
+  const oldObj = state.projects[obj.id];
   if (exists && !confirm('「' + obj.title + '」已經在清單裡了。\n要用新檔案更新織圖內容嗎？（鉤到哪裡的進度會保留）')) return false;
   try {
     await DB.set('proj:' + obj.id, obj);
@@ -531,6 +553,8 @@ async function importPattern(obj) {
     obj.parts.forEach(part => {
       const pp = p.parts[part.id];
       if (!pp) return;
+      const oldPart = oldObj && oldObj.parts.find(x => x.id === part.id);
+      pp.step = C.shiftForStarts(oldPart, part, pp.step);
       const n = flat(obj, part).length;
       pp.step = Math.min(pp.step, Math.max(0, n - 1));
       pp.copy = Math.min(pp.copy, partCount(part));
@@ -600,7 +624,11 @@ function exportBackup() {
 function openSheet(title, body) {
   closeSheet();
   const bg = h('div', { class: 'sheet-bg', id: 'sheet', onclick: e => { if (e.target === bg) closeSheet(); } },
-    h('div', { class: 'sheet' }, h('div', { class: 'sheet-handle' }), title ? h('h2', null, title) : null, body));
+    h('div', { class: 'sheet' }, h('div', { class: 'sheet-handle' }),
+      h('div', { class: 'sheet-top' }, title ? h('h2', null, title) : null,
+        h('button', { class: 'sheet-x', onclick: closeSheet, 'aria-label': '關閉' }, '✕')),
+      body,
+      h('button', { class: 'btn sheet-close', onclick: closeSheet }, '關閉')));
   document.body.appendChild(bg);
   return bg;
 }
@@ -740,10 +768,33 @@ function openHowto(key) {
   }
   openSheet((key.length <= 2 ? key + '｜' : '') + d.name + ' 怎麼鉤', body);
 }
+// 針法一行：[圖示] 代號 中文；tap 時可點開「怎麼鉤」
+function stitchLine(code, opts) {
+  opts = opts || {};
+  const name = C.LEGEND_TEXT[code] || (C.STITCHES[code] ? C.STITCHES[code].name : '');
+  const kids = [Symbols.has(code) ? Symbols.svg(code, opts.small ? 18 : 24) : null, h('b', null, code), h('span', null, name)];
+  const cls = 'stl' + (opts.small ? ' sm' : '');
+  return opts.tap && Howto.HOWTO[code]
+    ? h('button', { class: cls, onclick: () => openHowto(code) }, kids, h('span', { class: 'stl-go' }, '›'))
+    : h('span', { class: cls }, kids);
+}
+function stitchList(codes, opts) {
+  if (!codes || !codes.length) return null;
+  return h('div', { class: 'stls' + (opts && opts.small ? ' sm' : '') }, codes.map(c => stitchLine(c, opts)));
+}
+function cardCodes(step) {
+  const cy = cycleOf(step);
+  if (!cy) return C.stepCodes(step);
+  const ks = cy.unit.map(u => u.k);
+  return ks.filter((k, i) => ks.indexOf(k) === i);
+}
+// 不是針法代號的技巧（挑裡山、挑半針、起立針…）
 function howtoChips(step) {
-  const keys = Howto.keysForStep(step);
+  // 只濾掉這一步針法清單已列出的代號；從文字辨認出的環形起針、鎖針、引拔不在清單裡，要留在這裡
+  const listed = cardCodes(step);
+  const keys = Howto.keysForStep(step).filter(k => !listed.includes(k));
   if (!keys.length) return null;
-  return h('div', { class: 'howto-chips' }, '不會鉤？',
+  return h('div', { class: 'howto-chips' }, '其他技巧',
     keys.map(k => h('button', { onclick: () => openHowto(k) }, Howto.HOWTO[k].name)));
 }
 
@@ -907,6 +958,8 @@ function renderProject() {
       h('button', { class: 'btn', onclick: () => { if (confirm('要重新鉤「' + part.name + '」嗎？這個部件的進度會歸零。')) resetPart(); } }, '重新鉤這個部件'));
   } else if (!step) {
     main = h('div', { class: 'card' }, '這個部件沒有步驟。');
+  } else if (step.type === 'start') {
+    main = renderStartCard(part, steps, step, pp);
   } else if (step.type === 'note') {
     main = h('div', { class: 'card note-card' },
       h('div', { class: 'small muted', style: 'margin-bottom:6px' }, '📌 說明'),
@@ -917,7 +970,7 @@ function renderProject() {
 
   const nextStep = steps[pp.step + 1];
   const preview = mode === 'count' && !pp.done && nextStep
-    ? h('div', { class: 'next-prev' }, '下一步：' + (nextStep.type === 'note' ? '📌 ' + firstLine(nextStep.text) : nextStep.label + '　' + plainText(nextStep) + (nextStep.st != null ? '（' + nextStep.st + ' 針）' : '')))
+    ? h('div', { class: 'next-prev' }, '下一步：' + (nextStep.type === 'note' ? '📌 ' + firstLine(nextStep.text) : nextStep.type === 'start' ? '第 0 步：' + nextStep.text : nextStep.label + '　' + plainText(nextStep) + (nextStep.st != null ? '（' + nextStep.st + ' 針）' : '')))
     : null;
 
   $app.replaceChildren(
@@ -935,6 +988,9 @@ function renderProject() {
       preview),
     pp.done || !step ? null : renderDock(part, steps, step, pp));
 
+  // 新手模式的按鈕區會比較高（組數圓點＋「這組」），依實際高度留底部空白，避免蓋住最後幾行
+  const dock = $app.querySelector('.dock'), page = $app.querySelector('.counter-page');
+  if (dock && page) page.style.paddingBottom = 'calc(' + Math.max(150, dock.offsetHeight + 16) + 'px + env(safe-area-inset-bottom))';
   const on = $app.querySelector('.chip.on');
   if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   if (mode === 'full') {
@@ -987,11 +1043,20 @@ function cycleBox(step, pp) {
     h('div', { class: 'cy-box' },
       h('div', { class: 'cy-lab' }, '這一組要鉤'),
       h('div', { class: 'cy-chips' }, chips),
-      h('div', { class: 'cy-range' }, '鉤完這組，累計會是第 ' + to + ' 針',
+      h('div', { class: 'cy-range' },
         h('span', null, done + 1 === to ? '這組鉤出第 ' + to + ' 針' : '這組鉤出第 ' + (done + 1) + '～' + to + ' 針（共 ' + cy.produced + ' 針）'))),
     h('div', null,
       h('div', { class: 'cy-bar-t' }, h('span', null, '已鉤出'), h('span', null, h('b', null, done), ' / ' + total + ' 針')),
       h('div', { class: 'cy-bar' }, h('i', { style: 'width:' + Math.min(100, done / total * 100) + '%' }))));
+}
+
+function renderStartCard(part, steps, step, pp) {
+  return h('div', { class: 'card' },
+    h('div', { class: 'row-meta' }, '第 0 步・起針'),
+    h('div', { class: 'start-head' }, '第 0 步：' + step.text),
+    stitchList(C.stepCodes(step), { tap: true }),
+    step.tip ? h('div', { class: 'tip' }, '💡 ' + step.tip) : null,
+    howtoChips(step));
 }
 
 function renderRowCard(part, steps, step, pp) {
@@ -1021,8 +1086,10 @@ function renderRowCard(part, steps, step, pp) {
       step.color ? h('span', { class: 'tag' + (step.colorChange ? ' change' : '') }, (step.colorChange ? '換色 → ' : '🧶 ') + step.color) : null),
     repBox,
     countLine,
+    step.why ? h('div', { class: 'why' }, '🧮 ' + step.why) : null,
     cycleBox(step, pp),
     cycleOf(step) || (step.sub && !step.segments && !step.text) ? null : instrNode(step, 'instr'),
+    stitchList(cardCodes(step), { tap: true }),
     step.sub ? h('ol', { class: 'subs' }, step.sub.map((s, i) => h('li', null, h('span', { class: 'n' }, i + 1), h('span', null, s)))) : null,
     step.raw ? h('div', { class: 'raw' }, '原文：' + step.raw) : null,
     step.tip ? h('div', { class: 'tip' }, '💡 ' + step.tip) : null,
@@ -1039,6 +1106,7 @@ function renderFullPattern(part, steps, pp) {
     groups.push({ type: s.type, group: s.group, idx: [i], step: s });
   });
   const unit = unitOf(part);
+  const seen = new Set(); // 這個部件已經說明過的代號
   const list = groups.map(g => {
     const s = g.step;
     const first = g.idx[0], lastIdx = g.idx[g.idx.length - 1];
@@ -1053,6 +1121,16 @@ function renderFullPattern(part, steps, pp) {
     if (s.type === 'note') {
       return h('button', { class: cls + ' fp-note', onclick }, h('span', { class: 'fp-label' }, '📌'), h('span', { class: 'fp-instr' }, s.text));
     }
+    const codes = C.stepCodes(s);
+    const firsts = codes.filter(c => !seen.has(c));
+    firsts.forEach(c => seen.add(c));
+    const how = firsts.map(c => h('span', { class: 'fp-how' }, c + '：' + (Howto.HOWTO[c] && Howto.HOWTO[c].summary || C.LEGEND_TEXT[c] || '')));
+    if (s.type === 'start') {
+      return h('button', { class: cls, onclick },
+        h('span', { class: 'fp-label' }, '起針'),
+        h('span', { class: 'fp-mid' }, h('span', { class: 'fp-instr' }, s.text), stitchList(codes, { small: true }), how),
+        h('span', { class: 'fp-right' }, h('span', { class: 'fp-st' }, s.st != null ? s.st + ' 鎖針' : '—')));
+    }
     const label = g.idx.length > 1 ? s.label + '～' + steps[lastIdx].label.replace(/^[A-Z]+/, '') : s.label;
     const dt = deltaText(s.delta);
     const curNote = isCur && g.idx.length > 1 ? '目前第 ' + (pp.step - first + 1) + '/' + g.idx.length + ' ' + unit : null;
@@ -1060,6 +1138,8 @@ function renderFullPattern(part, steps, pp) {
       h('span', { class: 'fp-label' }, label),
       h('span', { class: 'fp-mid' },
         instrNode(s, 'fp-instr'),
+        s.why ? h('span', { class: 'fp-why' }, '🧮 ' + s.why) : null,
+        stitchList(codes, { small: true }), how,
         s.colorChange ? h('span', { class: 'fp-color' }, '換色 → ' + s.color) : null,
         s.warnings.length ? h('span', { class: 'fp-warn' }, '⚠️ ' + s.warnings[0]) : null,
         curNote ? h('span', { class: 'fp-curnote' }, '👉 ' + curNote) : null),
@@ -1073,24 +1153,45 @@ function renderFullPattern(part, steps, pp) {
 }
 
 function renderDock(part, steps, step, pp) {
-  const isNote = step.type === 'note';
+  const isNote = step.type !== 'row'; // 說明與起針都不算圈
+  const isStart = step.type === 'start';
   const unit = unitOf(part);
   const stats = rowStats(steps, pp.step);
-  const info = isNote
+  const nextRow = isStart ? steps.slice(pp.step + 1).find(s => s.type === 'row') : null;
+  const info = isStart ? '第 0 步：' + step.text
+    : isNote
     ? '看完說明再往下'
     : step.label + (step.st != null ? '・' + step.st + ' 針' : '') + '　（第 ' + stats.no + ' / ' + stats.total + ' ' + unit + '）';
   const isLast = pp.step >= steps.length - 1;
   const rep = isNote ? null : repInfo(steps, pp.step);
   const cy = isNote ? null : cycleOf(step);
   const g = cy ? cycleGroup(cy, pp) : 0;
-  const label = isNote ? '看完了 ✓'
-    : cy && g < cy.times - 1
-      ? h('span', { class: 'tap-two' }, h('span', null, '這組鉤好了'), h('span', { class: 'tap-sub' }, '下一組：第 ' + (g + 2) + ' 組'))
+  const cyTotal = cy ? (step.st != null ? step.st : cy.times * cy.produced) : 0;
+  const label = isStart ? (nextRow ? '起好了，開始 ' + nextRow.label : '起好了 ✓')
+    : isNote ? '看完了 ✓'
+    : cy
+      ? h('span', { class: 'tap-two cyc' },
+          h('span', null, g < cy.times - 1 ? '第 ' + (g + 1) + ' 組鉤好了' : '第 ' + cy.times + ' 組鉤好了，完成 ' + step.label),
+          h('span', { class: 'tap-sub' }, '鉤完手上應有 ' + (g + 1) * cy.produced + ' 針（共 ' + cyTotal + '）'))
     : rep && rep.left > 0
       ? h('span', { class: 'tap-two' }, h('span', null, '完成 ' + step.label), h('span', { class: 'tap-sub' }, '還有 ' + rep.left + ' ' + unit + '一樣的'))
       : '完成 ' + step.label + ' ✓';
+  const unitLine = [];
+  if (cy) cy.unit.forEach((u, i) => {
+    if (i > 0) unitLine.push(h('span', { class: 'cy-arrow' }, '→'));
+    if (u.n > 1) unitLine.push(h('b', null, u.n));
+    unitLine.push(stitchLine(u.k, { small: true }));
+  });
+  const infoBox = cy
+    ? h('div', { class: 'dock-cy' },
+        h('div', { class: 'dock-cy-top' },
+          h('div', { class: 'cy-dots', 'aria-hidden': 'true' },
+            Array.from({ length: cy.times }, (_, i) => h('span', { class: 'cy-dot' + (i < g ? ' done' : i === g ? ' cur' : '') }))),
+          h('span', null, step.label + '・第 ' + (g + 1) + ' / ' + cy.times + ' 組')),
+        h('div', { class: 'dock-cy-unit' }, h('span', null, '這組：'), unitLine))
+    : h('div', { class: 'dock-info' }, info);
   return h('div', { class: 'dock' }, h('div', { class: 'dock-in' },
-    h('div', { class: 'dock-info' }, info),
+    infoBox,
     h('div', { class: 'dock-grid2' },
       h('button', { class: 'side', onclick: onMinus, 'aria-label': '回上一步' }, h('span', { class: 's-ico' }, '↩'), h('span', null, '上一' + (isNote ? '步' : cy && g > 0 ? '組' : unit))),
       h('button', { class: 'tap' + (isLast ? ' finish' : ''), id: 'tapBtn', onclick: onTap }, label))));

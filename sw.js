@@ -1,6 +1,6 @@
 // 離線快取：改了 App 檔案就把版本號 +1（index.html 的 APP_VERSION 也要一起改），手機重開後會更新
-const CACHE = 'yarn-helper-v14';
-const ASSETS = ['./', './index.html', './core.js', './howto.js', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
+const CACHE = 'yarn-helper-v15';
+const ASSETS = ['./', './index.html', './core.js', './howto.js', './symbols.js', './manifest.webmanifest', './icon-180.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

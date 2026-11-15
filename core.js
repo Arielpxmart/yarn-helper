@@ -32,7 +32,9 @@
     M: '3 針併成 1 短針',
     SL: '引拔針',
     CH: '鎖針',
-    K: '跳過不鉤（K3 = 跳過 3 針）'
+    K: '跳過不鉤（K3 = 跳過 3 針）',
+    FW: '同一針裡鉤 3 長針',
+    MR: '環形起針（魔術環）'
   };
 
   function normalize(raw) {
@@ -213,6 +215,15 @@
         steps.push({ type: 'note', text: String(src.note), group: srcIdx });
         return;
       }
+      if (src.start != null && typeof src.start === 'object') {
+        const sv = src.start;
+        steps.push({ type: 'start', label: '起針', text: String(sv.text || ''),
+          how: sv.how === 'CH' || sv.how === 'MR' ? sv.how : null,
+          st: typeof sv.st === 'number' ? sv.st : null,
+          tip: src.tip || null, why: null, uses: null, warnings: [], group: srcIdx });
+        prevProduced = null; // 繞鎖針鏈兩側鉤的用針數無法從鎖針數推算，下一圈不核對
+        return;
+      }
       const nums = parseRows(src.rows) || [null];
       nums.forEach((r, k) => {
         const step = {
@@ -222,6 +233,8 @@
           raw: src.raw || null,
           text: src.text || null,
           tip: src.tip || null,
+          why: typeof src.why === 'string' ? src.why : null,
+          uses: Array.isArray(src.uses) ? src.uses.slice() : null,
           color: src.color || part.color || null,
           sub: Array.isArray(src.sub) ? src.sub.slice() : null,
           st: typeof src.st === 'number' ? src.st : null,
@@ -265,6 +278,25 @@
       });
     });
     return steps;
+  }
+
+  // 這一步用到哪些代號（依出現順序、去重）
+  function stepCodes(step) {
+    if (!step) return [];
+    let list = [];
+    if (step.type === 'start') list = step.how ? [step.how] : [];
+    else if (step.tokens && step.tokens.length) list = step.tokens.map(t => t.k);
+    else if (Array.isArray(step.uses)) list = step.uses;
+    return list.filter((k, i) => list.indexOf(k) === i);
+  }
+
+  // 重新匯入時：新檔比舊檔多了起針步驟，進度往後挪同樣格數（還沒開始的維持 0）
+  // 若是把原本的起針那一步改寫成 start（步數沒變），就不挪：取「start 增加數」與「攤平後步數增加數」較小者
+  function shiftForStarts(oldPart, newPart, step) {
+    if (!step || !oldPart) return step;
+    const n = pt => (pt && Array.isArray(pt.steps) ? pt.steps.filter(x => x && x.start != null).length : 0);
+    const len = pt => { try { return flattenPart(pt).length; } catch (e) { return 0; } };
+    return step + Math.max(0, Math.min(n(newPart) - n(oldPart), len(newPart) - len(oldPart)));
   }
 
   function stepTotal(step) {
@@ -319,6 +351,17 @@
           ['note', 'rows', 'raw', 'text', 'tip', 'label', 'color'].forEach(k => { if (st[k] != null && !isStrOrNum(st[k])) errors.push(w + '的 ' + k + ' 格式不對'); });
           if (st.st != null && !(Number.isInteger(st.st) && st.st >= 0 && st.st <= MAX_TOKENS)) errors.push(w + '的針數不合理');
           if (st.sub != null && !strList(st.sub, LIMITS.sub)) errors.push(w + '的 sub 要是文字清單');
+          if (st.why != null && !isStr(st.why)) errors.push(w + '的 why 要是文字');
+          if (st.uses != null && (!strList(st.uses, 20) || st.uses.some(k => !Object.prototype.hasOwnProperty.call(LEGEND_TEXT, k)))) errors.push(w + '的 uses 只能列符號表裡的代號');
+          if (st.start != null) {
+            const sv = st.start;
+            if (!sv || typeof sv !== 'object' || Array.isArray(sv)) errors.push(w + '的 start 格式不對');
+            else {
+              if (!isStr(sv.text) || !sv.text) errors.push(w + '的起針缺少 text');
+              if (sv.how != null && sv.how !== 'CH' && sv.how !== 'MR') errors.push(w + '的起針方式只能是 CH 或 MR');
+              if (sv.st != null && !(Number.isInteger(sv.st) && sv.st >= 0 && sv.st <= MAX_TOKENS)) errors.push(w + '的起針數不合理');
+            }
+          }
         });
       });
     }
@@ -339,7 +382,7 @@
     return out;
   }
 
-  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, analyzeCycle, stepTotal, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
+  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, analyzeCycle, stepTotal, stepCodes, shiftForStarts, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.YarnCore = api;
 })(typeof self !== 'undefined' ? self : this);
