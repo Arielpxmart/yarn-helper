@@ -14,6 +14,14 @@
     return out;
   }
   const fan = (tops, slashes) => tops.reduce((a, t) => a.concat(post(12, 21, t[0], t[1], slashes)), []);
+  // 併針：幾根桿子從下面不同針目往上收到同一點，頂端一條橫線
+  const join = (bases, slashes) => bases.reduce((a, b) => a.concat(post(b[0], b[1], 12, 4, slashes)), []);
+  // 斜槓（長針 1 條、長長針 2 條），畫在棗形、爆米花中間
+  const bars = n => Array.from({ length: n }, (_, i) => ['path', { d: 'M8 ' + (14 + i * 3) + 'L16 ' + (11 + i * 3) }]);
+  const SLASH = { T: 0, F: 1, E: 2 };
+  // 棗形針：葉子形（未完成的針一起拉過）；爆米花針：圓桶形（完整的針收成一團）
+  const puff = b => [['path', { d: 'M12 21C5 16 5 10 12 6C19 10 19 16 12 21Z' }], ['path', { d: 'M8 4H16' }], ['path', { d: 'M12 6V21' }]].concat(bars(SLASH[b]));
+  const popcorn = b => [['path', { d: 'M7 6C3 10 3 17 7 21H17C21 17 21 10 17 6Z' }], ['path', { d: 'M6 4H18' }], ['path', { d: 'M10 7V20M14 7V20' }]].concat(bars(SLASH[b]));
 
   const DATA = {
     X:  [['path', { d: 'M6 6L18 18M18 6L6 18' }]],
@@ -27,11 +35,23 @@
     FV: fan([[5, 4], [19, 4]], 1),
     EV: fan([[5, 4], [19, 4]], 2),
     FW: fan([[3.5, 7], [12, 3], [20.5, 7]], 1),
+    TV: fan([[5, 4], [19, 4]], 0),
+    TW: fan([[3.5, 7], [12, 3], [20.5, 7]], 0),
+    EW: fan([[3.5, 7], [12, 3], [20.5, 7]], 2),
+    TA: join([[5, 21], [19, 21]], 0),
+    TM: join([[4, 21], [12, 21], [20, 21]], 0),
+    FA: join([[5, 21], [19, 21]], 1),
+    FM: join([[4, 21], [12, 21], [20, 21]], 1),
+    EA: join([[5, 21], [19, 21]], 2),
+    EM: join([[4, 21], [12, 21], [20, 21]], 2),
     SL: [['ellipse', { cx: 12, cy: 12, rx: 5, ry: 3, fill: 'currentColor' }]],
     CH: [['ellipse', { cx: 12, cy: 12, rx: 7, ry: 4 }]],
     K:  [['path', { d: 'M3 17Q12 3 21 17', 'stroke-dasharray': '2.5 3' }]],
     MR: [['path', { d: 'M12 12m-1.5 0a1.5 1.5 0 1 1 3 0a3.5 3.5 0 1 1 -7 0a5.5 5.5 0 1 1 11 0a7.5 7.5 0 1 1 -15 0' }]]
   };
+
+  // 棗形針、爆米花針不分針數用同一個圖（2～6 針，和 core.js 一致）
+  for (let n = 2; n <= 6; n++) ['T', 'F', 'E'].forEach(b => { DATA[n + b + 'Q'] = puff(b); DATA[n + b + 'G'] = popcorn(b); });
 
   const CODES = Object.keys(DATA);
   const has = code => Object.prototype.hasOwnProperty.call(DATA, code);

@@ -9,10 +9,20 @@
     W:  { c: 1, p: 3, name: '3 短針加針', short: '3加' },
     A:  { c: 2, p: 1, name: '減針',   short: '減' },
     T:  { c: 1, p: 1, name: '中長針', short: '中長' },
+    TV: { c: 1, p: 2, name: '中長針加針', short: '中長加' },
+    TW: { c: 1, p: 3, name: '中長針 1 針放 3 針', short: '中長3加' },
+    TA: { c: 2, p: 1, name: '中長針減針', short: '中長減' },
+    TM: { c: 3, p: 1, name: '中長針 3 針併 1', short: '中長併3' },
     F:  { c: 1, p: 1, name: '長針',   short: '長' },
     FV: { c: 1, p: 2, name: '長針加針', short: '長加' },
+    FW: { c: 1, p: 3, name: '長針 1 針放 3 針', short: '長3加' },
+    FA: { c: 2, p: 1, name: '長針減針', short: '長減' },
+    FM: { c: 3, p: 1, name: '長針 3 針併 1', short: '長併3' },
     E:  { c: 1, p: 1, name: '長長針', short: '長長' },
     EV: { c: 1, p: 2, name: '長長針加針', short: '長長加' },
+    EW: { c: 1, p: 3, name: '長長針 1 針放 3 針', short: '長長3加' },
+    EA: { c: 2, p: 1, name: '長長針減針', short: '長長減' },
+    EM: { c: 3, p: 1, name: '長長針 3 針併 1', short: '長長併3' },
     M:  { c: 3, p: 1, name: '3 針併 1', short: '併3' },
     SL: { c: 1, p: 1, name: '引拔針', short: '引' },
     CH: { c: 0, p: 1, name: '鎖針',   short: '鎖' },
@@ -25,10 +35,19 @@
     W: '同一針裡鉤 3 短針',
     A: '減針：2 針併成 1 針',
     T: '中長針',
+    TV: '中長針加針：同一針裡鉤 2 中長針',
+    TW: '同一針裡鉤 3 中長針',
+    TA: '中長針減針：2 針併成 1 中長針',
+    TM: '3 針併成 1 中長針',
     F: '長針',
     FV: '長針加針：同一針裡鉤 2 長針',
+    FA: '長針減針：2 針併成 1 長針',
+    FM: '3 針併成 1 長針',
     E: '長長針',
     EV: '長長針加針：同一針裡鉤 2 長長針',
+    EW: '同一針裡鉤 3 長長針',
+    EA: '長長針減針：2 針併成 1 長長針',
+    EM: '3 針併成 1 長長針',
     M: '3 針併成 1 短針',
     SL: '引拔針',
     CH: '鎖針',
@@ -36,6 +55,21 @@
     FW: '同一針裡鉤 3 長針',
     MR: '環形起針（魔術環）'
   };
+
+  // 棗形針（Q）、爆米花針（G）：代號＝針數＋針法＋Q/G，例如 3TQ（中長針 3 針的棗形針）、5FG（長針 5 針的爆米花針）
+  // 都是「鉤在 1 個針目、做出 1 針」；要重複時用括號，例如 6(3TQ, CH)
+  const CLUSTER_BASE = { T: '中長針', F: '長針', E: '長長針' };
+  const CLUSTER_MIN = 2, CLUSTER_MAX = 6;
+  for (let n = CLUSTER_MIN; n <= CLUSTER_MAX; n++) {
+    for (const b of Object.keys(CLUSTER_BASE)) {
+      const qn = CLUSTER_BASE[b] + ' ' + n + ' 針的棗形針', gn = CLUSTER_BASE[b] + ' ' + n + ' 針的爆米花針';
+      STITCHES[n + b + 'Q'] = { c: 1, p: 1, name: qn, short: '棗', fmt: x => x + ' 個' + qn };
+      LEGEND_TEXT[n + b + 'Q'] = '棗形針：同一針裡鉤 ' + n + ' 個未完成的' + CLUSTER_BASE[b] + '，一次拉過針上全部線圈';
+      STITCHES[n + b + 'G'] = { c: 1, p: 1, name: gn, short: '爆', fmt: x => x + ' 個' + gn };
+      LEGEND_TEXT[n + b + 'G'] = '爆米花針：同一針裡鉤 ' + n + ' 個完整的' + CLUSTER_BASE[b] + '，抽出鉤針、從第 1 針穿過去把最後一針拉出來，再鉤 1 鎖針收緊';
+    }
+  }
+  const isCluster = k => /^\d[TFE][QG]$/.test(k);
 
   function normalize(raw) {
     return String(raw)
@@ -72,6 +106,15 @@
     }
     let depth = 0;
     function item() {
+      // 棗形針／爆米花針：前面的數字是「幾針」不是重複次數，所以要先認
+      const cm = /^(\d+)([TFE][QG])/.exec(s.slice(i));
+      if (cm) {
+        const k = cm[1] + cm[2];
+        if (!STITCHES[k]) err('棗形針、爆米花針寫成「針數＋針法＋Q/G」（' + CLUSTER_MIN + '～' + CLUSTER_MAX + ' 針，例如 3TQ）；要重複請用括號，例如 5(3TQ)');
+        i += cm[0].length;
+        return { type: 'st', k, n: 1 };
+      }
+      if (/^[TFE][QG]/.test(s.slice(i))) err('棗形針、爆米花針要寫幾針，例如 3TQ、5FG');
       const n = num();
       if (s[i] === '(') {
         if (++depth > MAX_DEPTH) err('括號太多層');
@@ -101,7 +144,8 @@
         return { type: 'color', color, items: inner };
       }
       const rest = s.slice(i);
-      const m = /^(SL|CH|FV|EV|[XVWATFEMK])/.exec(rest);
+      // 兩個字母的代號要排在單字母前面，否則 TA 會被拆成 T、A
+      const m = /^(SL|CH|TV|TW|TA|TM|FV|FW|FA|FM|EV|EW|EA|EM|[XVWATFEMK])/.exec(rest);
       if (!m) err('看不懂的針法「' + (rest[0] || '') + '」');
       i += m[1].length;
       return { type: 'st', k: m[1], n: n == null ? 1 : n };
@@ -382,7 +426,7 @@
     return out;
   }
 
-  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, analyzeCycle, stepTotal, stepCodes, shiftForStarts, validatePattern, sanitizeProgress, normalize, validId, MAX_TOKENS };
+  const api = { STITCHES, LEGEND_TEXT, parseRaw, expand, toSegments, flattenPart, analyzeCycle, stepTotal, stepCodes, shiftForStarts, validatePattern, sanitizeProgress, normalize, validId, isCluster, MAX_TOKENS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.YarnCore = api;
 })(typeof self !== 'undefined' ? self : this);

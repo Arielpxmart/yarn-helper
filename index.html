@@ -270,6 +270,8 @@
   .kb-sec { margin: 18px 0 6px; font-size: 16px; font-weight: 800; color: var(--primary); }
   .kb-row { display: flex; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); align-items: baseline; }
   .kb-row:last-child { border-bottom: none; }
+  .kb-sym { flex: none; width: 24px; align-self: center; }
+  .kb-search { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: inherit; margin-bottom: 4px; }
   .kb-code { flex-shrink: 0; min-width: 64px; font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 15px; }
   .kb-text { flex: 1; font-size: 15px; }
   .kb-text small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -332,7 +334,7 @@
 'use strict';
 const C = window.YarnCore;
 // 版號：改 App 時和 sw.js 的 CACHE 一起 +1
-const APP_VERSION = { no: 'v15', date: '2026-11-15' };
+const APP_VERSION = { no: 'v16', date: '2026-11-20' };
 const DEVELOPER = 'Ariel（桃子妖么）';
 
 /* ---------- 小工具 ---------- */
@@ -656,33 +658,74 @@ function openViewer(project, startIdx) {
 }
 
 /* ---------- 符號小知識 ---------- */
+// 針法圖鑑：[代號, 名稱, 補充說明, 怎麼鉤的 key（省略時用代號）, 符號圖的 key（省略時用代號）]
+// 內容整理自常見中文織圖符號表（小紅書整理、各鉤針教科書），文字與符號圖都是 App 自己重寫重畫的
 const GUIDE = [
   { title: '🌼 基本針法', rows: [
-    ['X', '短針'],
-    ['CH／ch', '鎖針（辮子針）'],
-    ['SL／sl st', '引拔針'],
-    ['T／hdc', '中長針'],
-    ['F／dc', '長針'],
-    ['E／tr', '長長針'],
+    ['CH／ch', '鎖針（辮子針）', '高 0、寬 1。起針、轉角、留洞都會用到', 'CH', 'CH'],
+    ['SL／sl st', '引拔針', '高 0。合圈、移位、收邊用；圖上有時畫成實心橢圓或小黑點', 'SL', 'SL'],
+    ['X／sc', '短針', '約 1 鎖針高。日系圖解有兩種畫法：「＋」（寶庫社）和「×」（JIS），意思一樣', 'X', 'X'],
+    ['T／hdc', '中長針', '約 2 鎖針高，有人稱半長針', 'T', 'T'],
+    ['F／dc', '長針', '約 3 鎖針高，符號桿子上有 1 條斜槓', 'F', 'F'],
+    ['E／tr', '長長針', '約 4 鎖針高，2 條斜槓', 'E', 'E'],
+    ['3 卷長針', '三卷長針（dtr）', '約 5 鎖針高，先繞線 3 次，3 條斜槓'],
     ['半短針', '不是標準針法', '多半指中長針（T）；若寫「半針」，指的是只挑半個 V（見下方 FLO／BLO）']
   ] },
   { title: '🌼 加針｜鉤在同一個針目', rows: [
-    ['V', '同一針目鉤 2 短針'],
-    ['W', '同一針目鉤 3 短針'],
-    ['FV', '同一針目鉤 2 長針'],
-    ['EV', '同一針目鉤 2 長長針']
+    ['V', '短針加針：同一針鉤 2 短針'],
+    ['W', '短針 1 針放 3 針'],
+    ['TV', '中長針加針：同一針鉤 2 中長針'],
+    ['TW', '中長針 1 針放 3 針'],
+    ['FV', '長針加針：同一針鉤 2 長針', '圖上桿子底部分開畫，代表「整段挑起」鎖針空間來鉤'],
+    ['FW', '長針 1 針放 3 針'],
+    ['EV', '長長針加針：同一針鉤 2 長長針'],
+    ['EW', '長長針 1 針放 3 針']
   ] },
   { title: '🌼 減針｜多個針目合併', rows: [
-    ['A', '2 針合併成 1 短針'],
-    ['M', '3 針合併成 1 短針']
+    ['A', '短針減針：2 針併 1'],
+    ['M', '短針 3 針併 1'],
+    ['TA', '中長針減針：2 針併 1'],
+    ['TM', '中長針 3 針併 1'],
+    ['FA', '長針減針：2 針併 1', '有的圖解會跳過中間 1 針再併（例如菜籃袋凹谷），照圖解挑針'],
+    ['FM', '長針 3 針併 1'],
+    ['EA', '長長針減針：2 針併 1'],
+    ['EM', '長長針 3 針併 1'],
+    ['隱形減針', '只挑 2 針的前半針再併', '玩偶常用，表面比較平整', 'A', null]
+  ] },
+  { title: '🌰 棗形針（Q）、爆米花針（G）', rows: [
+    ['命名規則', '針數＋針法＋Q 或 G', '例如 3TQ＝中長針 3 針的棗形針、5FG＝長針 5 針的爆米花針。前面的數字是「幾針」，不是重複次數；要重複寫成 6(3TQ, CH)', null, null],
+    ['3TQ', '中長針 3 針的棗形針', '最常見的棗形針，包包、毯子常用', '3TQ', '3TQ'],
+    ['3FQ', '長針 3 針的棗形針', null, '3FQ', '3FQ'],
+    ['5FQ', '長針 5 針的棗形針', null, '5FQ', '5FQ'],
+    ['5EQ', '長長針 5 針的棗形針', null, '5EQ', '5EQ'],
+    ['5TG', '中長針 5 針的爆米花針', null, '5TG', '5TG'],
+    ['5FG', '長針 5 針的爆米花針', '最常見的爆米花針，立體凸起，適合做頭髮、鬃毛', '5FG', '5FG'],
+    ['5EG', '長長針 5 針的爆米花針', null, '5EG', '5EG'],
+    ['成束鉤織', '整段挑起下面的鎖針空間來鉤', '圖上符號底部是分開的，就是成束鉤織；底部收在一點，是插進同一個針目', null, null],
+    ['棗形 vs 爆米花', '棗形：每針都不鉤完，一起拉過；爆米花：每針都鉤完，再收成一團', '爆米花凸得比較明顯；棗形比較圓潤', null, null]
   ] },
   { title: '🌼 起針與挑針方式', rows: [
-    ['MR', '環形起針（魔術環）'],
-    ['K3', '跳過 3 針不鉤', '常和鎖針一起用，鉤出洞洞，例如貓耳朵'],
-    ['裡山', '鎖針背面的一排小凸起', '從鎖針起針時挑它，起針邊比較整齊', 'BUMP'],
-    ['BLO', '後半針／內半針', '只挑針目後側（離自己遠）的半個 V 鉤。有些作者的「內半針」定義相反，以原作者為準', 'LOOP'],
-    ['FLO', '前半針／外半針', '只挑針目前側（離自己近）的半個 V 鉤，沒鉤的線會留成一排小脊', 'LOOP'],
-    ['起立針', '用鎖針墊高，方便開始新的一行或一圈', '常見：短針 1、中長針 2、長針 3、長長針 4 個鎖針；算不算一針依作者而定', 'TURN']
+    ['MR', '環形起針（魔術環）', '日系圖解畫成圓圈裡寫「わ」或「環」', 'MR', 'MR'],
+    ['K3', '跳過 3 針不鉤', '常和鎖針一起用，鉤出洞洞，例如貓耳朵', 'K', 'K'],
+    ['裡山', '鎖針背面的一排小凸起', '從鎖針起針時挑它，起針邊比較整齊', 'BUMP', null],
+    ['BLO／BL', '後半針／內半針', '只挑針目後側（離自己遠）的半個 V 鉤。圖上畫成短針下方一條往上彎的弧線。有些作者的「內半針」定義相反，以原作者為準', 'LOOP', null],
+    ['FLO／FL', '前半針／外半針', '只挑針目前側（離自己近）的半個 V 鉤，沒鉤的線會留成一排小脊', 'LOOP', null],
+    ['起立針', '用鎖針墊高，方便開始新的一行或一圈', '常見：短針 1、中長針 2、長針 3、長長針 4 個鎖針；算不算一針依作者而定', 'TURN', null],
+    ['鎖針空間', 'ch-sp，鎖針圍出來的洞', '在洞裡鉤時，整段挑起鎖針，不用插進鎖針本身', null, null]
+  ] },
+  { title: '🧵 其他常見針法（App 還沒有代號）', rows: [
+    ['WX／NX', '短針的正拉針／反拉針（外鉤、內鉤短針）', '圖解上的 WX、NX、WT、NF 是「拉針」：繞著下一行針目的桿子鉤，不是 App 的 W（1 針放 3 針）', null, null],
+    ['WF／NF', '長針的正拉針／反拉針', '做出立體直紋，常用在帽緣、杯套的羅紋', null, null],
+    ['反短針', '倒鉤短針（蟹針）', '由左往右鉤短針，收邊會變成一條扭轉的繩紋', null, null],
+    ['交叉針', '長針 1 針交叉、右上交叉、左上交叉', '先跳過一針鉤後面那針，再回頭鉤跳過的那針，兩針交叉', null, null],
+    ['十字針、Y 字針', '長針做成 X 或 Y 形的鏤空花樣', null, null, null],
+    ['貝殼針', '同一針裡鉤 5 個左右的長針，展開成扇形', '寬約 5 針，常見於花邊、毯子', null, null],
+    ['狗牙針', '3 鎖針後引拔回根部，做出小圓點', '收邊用；有些作者把狗牙針寫成 Y', null, null],
+    ['結針', '短針鉤好後再繞一圈拉緊的小結', null, null, null],
+    ['延長針', '針插到下面一兩行再鉤，拉出長長的線', '換色時做出 V 字或尖角花樣', null, null],
+    ['條紋針、菱形針', '只挑後半針鉤，做出橫條紋（環形）或菱形紋（來回）', null, null, null],
+    ['卷針', '鉤針上繞很多圈再一次拉過，做出卷捲的圓柱', '高度看繞幾圈', null, null],
+    ['蘿蔔絲針（UX、UF）', '用手指勾出長線圈的毛毛邊', '常做獅子鬃毛、毛毯邊', null, null]
   ] },
   { title: '📖 圖解怎麼看', rows: [
     ['R1、R2', '第 1 圈、第 2 圈', '片鉤時也可能指行數；中文圖解片鉤常寫 H1、H2'],
@@ -690,28 +733,62 @@ const GUIDE = [
     ['6V', '連續鉤 6 個加針，完成後共 12 針'],
     ['(X、V)×6', '「1 短針、1 加針」重複 6 次', '也常寫成 6(X、V)'],
     ['18X', '不加不減：每個針目各鉤 1 短針，共 18 針'],
-    ['(18)', '圈數後面括號裡的數字：這圈鉤完的總針數']
+    ['(18)', '圈數後面括號裡的數字：這圈鉤完的總針數'],
+    ['倒二、倒三', '從鉤針往回數第 2、第 3 個鎖針開始鉤', '前面沒鉤的鎖針當起立針'],
+    ['△／▲', '空心三角：接新線；實心三角：斷線', '日系圖解常用'],
+    ['] [', '重複這段', '箭頭（→）標鉤的方向']
   ] },
+  { title: '🧶 線材和鉤針號數（參考）', table: [
+    ['四股牛奶線', '1.5–2.0 mm'], ['五股牛奶線', '2.0–3.0 mm'], ['雪尼爾線', '1.5–2.5 mm'],
+    ['空心紗', '1.5–2.0 mm'], ['噴毛紗', '1.75–2.5 mm'], ['蕾絲線', '0.5–1.75 mm'],
+    ['布條線', '4.5–6.0 mm'], ['手混線', '5.5–8.0 mm'], ['馬海毛', '1.25–1.75 mm'],
+    ['真心棉', '2.5–3.5 mm'], ['珊瑚絨', '3.5–5.0 mm']
+  ], note: '一般參考範圍，以線材標籤和原作者建議為準。鉤玩偶要鉤密一點（不露棉花），通常選範圍裡偏小的號數；包包要硬挺也偏小，圍巾、毯子要柔軟就偏大。' },
   { title: '💡 針法小口訣', rows: [
     ['中長針', '先繞線 1 次，一次過 3 圈'],
     ['長針', '先繞線 1 次，分兩次各過 2 圈'],
-    ['長長針', '先繞線 2 次，分三次各過 2 圈']
+    ['長長針', '先繞線 2 次，分三次各過 2 圈'],
+    ['棗形針', '每針都不鉤完，最後一次拉過全部'],
+    ['爆米花針', '每針都鉤完，抽針從第 1 針穿過去收緊']
   ] }
 ];
-function openGuide() {
-  openSheet('📚 鉤針符號小知識', h('div', null,
-    GUIDE.map(sec => [
-      h('div', { class: 'kb-sec' }, sec.title),
-      sec.rows.map(r => {
-        const key = r[3] || r[0].split('／')[0];
+function guideKey(r, i, fallback) { return r.length > i ? r[i] : fallback; }
+function openGuide(focus) {
+  const q = h('input', { type: 'search', class: 'kb-search', placeholder: '搜尋針法、代號（例如 長針、TA、棗形）', 'aria-label': '搜尋針法' });
+  const list = h('div');
+  function draw() {
+    const kw = q.value.trim().toLowerCase();
+    const hit = t => !kw || String(t || '').toLowerCase().includes(kw);
+    const secs = [];
+    GUIDE.forEach(sec => {
+      if (sec.table) {
+        const rows = sec.table.filter(r => hit(sec.title) || hit(r[0]) || hit(r[1]));
+        if (!rows.length) return;
+        secs.push(h('div', { class: 'kb-sec', id: sec.title.includes('線材') ? 'kb-yarn' : null }, sec.title),
+          h('table', { class: 'ht-table' }, rows.map(r => h('tr', null, h('td', null, r[0]), h('td', null, r[1])))),
+          sec.note ? h('div', { class: 'kb-note' }, sec.note) : null);
+        return;
+      }
+      const rows = sec.rows.filter(r => hit(sec.title) || r.slice(0, 3).some(hit));
+      if (!rows.length) return;
+      secs.push(h('div', { class: 'kb-sec' }, sec.title), rows.map(r => {
+        const code = r[0].split('／')[0];
+        const key = guideKey(r, 3, code), sym = guideKey(r, 4, code);
         return h('div', { class: 'kb-row' },
+          h('span', { class: 'kb-sym' }, sym && Symbols.has(sym) ? Symbols.svg(sym, 24) : null),
           h('span', { class: 'kb-code' }, r[0]),
           h('span', { class: 'kb-text' }, r[1], r[2] ? h('small', null, r[2]) : null),
-          Howto.HOWTO[key] ? h('button', { class: 'kb-how', onclick: () => openHowto(key) }, '怎麼鉤 ›') : null);
-      })
-    ]),
+          key && Howto.HOWTO[key] ? h('button', { class: 'kb-how', onclick: () => openHowto(key) }, '怎麼鉤 ›') : null);
+      }));
+    });
+    list.replaceChildren(...(secs.length ? secs.flat() : [h('p', { class: 'muted' }, '找不到「' + q.value + '」，換個關鍵字試試')]));
+  }
+  q.addEventListener('input', draw);
+  draw();
+  openSheet('📚 針法圖鑑', h('div', null, q, list,
     h('div', { class: 'kb-note' },
       '📌 各作者的符號可能不同，請優先看該份圖解的說明。例如有的作者會把 EV 當成「長長針」本身，就要照原作者的定義。英文縮寫採美式用法。')));
+  if (focus) { const el = document.getElementById(focus); if (el) el.scrollIntoView(); }
 }
 
 /* ---------- 針法怎麼鉤 ---------- */
@@ -833,7 +910,7 @@ function renderHome() {
     h('div', { class: 'topbar' },
       h('h1', null, '🧶 毛線小幫手'),
       h('button', { class: 'icon-btn', style: 'font-size:14px;font-weight:700', onclick: () => { sorting = !sorting; renderHome(); }, 'aria-label': '調整順序' }, sorting ? '完成' : '↕ 排序'),
-      h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
+      h('button', { class: 'icon-btn', onclick: () => openGuide(), 'aria-label': '針法圖鑑' }, '📚'),
       h('button', { class: 'icon-btn', onclick: openHomeMenu, 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'wrap stack' },
       h('div', { class: 'seg', role: 'tablist' },
@@ -977,7 +1054,7 @@ function renderProject() {
     h('div', { class: 'topbar' },
       h('button', { class: 'icon-btn', onclick: () => go('home'), 'aria-label': '回作品清單' }, '‹'),
       h('h1', null, project.title),
-      h('button', { class: 'icon-btn', onclick: openGuide, 'aria-label': '符號小知識' }, '📚'),
+      h('button', { class: 'icon-btn', onclick: () => openGuide(), 'aria-label': '針法圖鑑' }, '📚'),
       (project.images || []).length ? h('button', { class: 'icon-btn', onclick: () => openViewer(project, 0), 'aria-label': '看原圖' }, '🖼️') : null,
       h('button', { class: 'icon-btn', onclick: () => openProjectMenu(), 'aria-label': '選單' }, '⋯')),
     h('div', { class: 'parts' }, chips),
@@ -1303,6 +1380,9 @@ function openInfo() {
   const legend = (project.legend || Object.keys(C.LEGEND_TEXT)).filter(k => C.LEGEND_TEXT[k]);
   openSheet('材料、符號與說明', h('div', { class: 'info' },
     project.materials && project.materials.length ? [h('h3', null, '🧶 材料'), h('ul', null, project.materials.map(m => h('li', null, m)))] : null,
+    // 材料沒寫鉤針號數（沒有 mm 或「號」）時，提示可以查線材對照
+    !(project.materials || []).some(m => /\d\s*(mm|號)/i.test(m) && !/沒寫|未寫|不明/.test(m))
+      ? h('button', { class: 'kb-how', style: 'margin:2px 0 6px', onclick: () => openGuide('kb-yarn') }, '沒寫鉤針號數？看線材和鉤針對照 ›') : null,
     h('h3', null, '🔤 符號'),
     h('ul', null, legend.map(k => h('li', null, h('b', null, k), '：' + C.LEGEND_TEXT[k]))),
     project.notes && project.notes.length ? [h('h3', null, '📝 說明'), h('ul', null, project.notes.map(m => h('li', null, m)))] : null,
